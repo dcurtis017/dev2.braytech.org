@@ -3,24 +3,27 @@
   width: 384px;
   pointer-events: none;
   z-index: 2000;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
   color: rgba(255, 255, 255, 0.8);
   font-size: 16px;
   line-height: 1;
+  /* transform: scale(1); */
   --background-body: 238, 238, 238;
   --dark: 0, 0, 0;
   --light: 255, 255, 255;
   --accent: 0, 0, 255;
-  --exotic: 43, 71%, 53%;
+  --exotic: 48, 61%, 50%;
   --legendary: 279, 36%, 29%;
   --rare: 213, 34%, 48%;
   --uncommon: 126, 35%, 32%;
   --common: 0, 0%, 80%;
-  --exoticDark: 43, 71%, 5%;
+  --exoticDark: 48, 71%, 5%;
   --legendaryDark: 279, 36%, 5%;
   --rareDark: 213, 34%, 6%;
   --uncommonDark: 126, 35%, 5%;
   --commonDark: 0, 0%, 7%;
+  --strikeAlpha: 203, 31%, 13%;
+  --strikeBeta: 203, 32%, 8%;
 }
 
 #tooltip .acrylic {
@@ -41,6 +44,7 @@
   margin: 0;
   background-color: hsla(var(--common), 0.9);
   color: #fff;
+  font-family: 'nhg text';
   display: flex;
   flex-flow: row wrap;
 }
@@ -59,10 +63,10 @@
   font-weight: 500;
   letter-spacing: 1px;
   text-transform: uppercase;
-  margin: 0 0 4px;
 }
 
 #tooltip .header .kind {
+  margin: 4px 0 0;
   opacity: 0.8;
 }
 
@@ -71,12 +75,30 @@
   text-align: right;
 }
 
+#tooltip .frame .note {
+  padding: 6px 16px;
+  background-color: rgba(156, 53, 51, 0.8);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 #tooltip .black {
   background-color: rgba(0, 0, 0, 0.75);
 }
 
+#tooltip .black .screenshot {
+  position: relative;
+  height: unset;
+  padding-bottom: 56%;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+#tooltip .black .screenshot .image {
+  background-size: cover;
+}
+
 #tooltip .damage {
-  padding: 12px 16px 10px;
+  padding: 14px 16px 10px;
   color: #fff;
   display: flex;
   flex-flow: row wrap;
@@ -84,7 +106,7 @@
 
 #tooltip .damage .power {
   font-size: 32px;
-  font-weight: 600;
+  line-height: 30px;
   display: flex;
   align-items: center;
   padding: 0 16px 0 0;
@@ -93,6 +115,7 @@
 
 #tooltip .damage .power .text {
   font-size: 40px;
+  font-weight: 600;
 }
 
 #tooltip .damage .power:not(.kinetic) .text {
@@ -160,27 +183,27 @@
 }
 
 #tooltip .damage .slot .icon::before {
-  font-family: 'destiny';
+  font-family: 'destiny' !important;
 }
 
 #tooltip .damage .slot .icon.primary::before {
-  content: 'P';
+  content: '\e902';
 }
 
 #tooltip .damage .slot .icon.special::before {
-  content: 'S';
-  color: #84f186;
+  content: '\e901';
+  color: #7af48b;
 }
 
 #tooltip .damage .slot .icon.heavy::before {
-  content: 'H';
-  color: #a981fc;
+  content: '\e900';
+  color: #b286ff;
 }
 
 #tooltip .damage .slot .text {
-  padding: 0 0 0 10px;
-  letter-spacing: 0.8px;
+  padding: 0 0 0 12px;
   text-transform: uppercase;
+  font-family: 'nhg text';
 }
 
 #tooltip .source {
@@ -192,14 +215,46 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-#tooltip .frame.emblem .source {
+#tooltip .source.no-border {
   border-top: none;
 }
 
+#tooltip .kill-tracker {
+  padding: 2px 16px 12px;
+  display: flex;
+  align-items: center;
+}
+
+#tooltip .kill-tracker .icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex-basis: 16px;
+  background-size: contain;
+}
+
+#tooltip .kill-tracker .text {
+  flex-basis: calc(100% - 16px);
+  padding: 0 0 0 10px;
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#tooltip .kill-tracker .text .description {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#tooltip .kill-tracker .text .value {
+  text-align: right;
+}
+
 #tooltip .stats {
-  padding: 14px 16px 8px;
+  padding: 14px 16px 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 #tooltip .stats .stat {
@@ -220,14 +275,30 @@
 }
 
 #tooltip .stats .stat .value {
-  flex-basis: calc(55% - 16px);
+  flex-basis: 55%;
   height: 16px;
   position: relative;
   color: #fff;
+  display: flex;
 }
 
 #tooltip .stats .stat .value.bar {
   background-color: rgba(255, 255, 255, 0.04);
+}
+
+#tooltip .stats .stat .value.bar .int {
+  display: none;
+}
+
+#tooltip .stats.detailed-mode .stat .value.bar .int {
+  position: absolute;
+  top: 0;
+  right: 3px;
+  height: 100%;
+  display: grid;
+  align-content: center;
+  font-size: 11px;
+  opacity: 0.5;
 }
 
 #tooltip .stats .stat .value.int {
@@ -235,12 +306,18 @@
   align-items: center;
 }
 
+#tooltip .stats .stat .value.mod {
+  color: #ddcd8c;
+}
+
+#tooltip .stats .stat .value.masterwork {
+  color: #c6ab3c;
+}
+
 #tooltip .stats .stat .value .bar {
-  position: absolute;
-  top: 0;
-  left: 0;
   height: 100%;
   background-color: #fff;
+  position: relative;
 }
 
 #tooltip .stats .stat .value .bar::before {
@@ -258,26 +335,50 @@
   opacity: 0;
 }
 
-#tooltip .sockets.hasTraits {
-  padding: 0 0 16px;
+#tooltip .stats .stat .value .tip {
+  height: 100%;
+  background-color: #ddcd8c;
+}
+
+#tooltip .stats .stat .value .tip.masterwork {
+  background-color: #c6ab3c;
+}
+
+#tooltip .sockets {
+  display: none;
+}
+
+#tooltip .sockets.has-sockets {
+  display: block;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0 0 12px;
 }
 
 #tooltip .plug {
   padding: 12px 16px 0;
   display: flex;
+  opacity: 0.4;
+}
+
+#tooltip .plug.is-active {
+  opacity: 1;
+}
+
+#tooltip .plug.ellipsis {
+  opacity: 1;
 }
 
 #tooltip .plug .icon {
   position: relative;
-  width: 40px;
-  height: 40px;
-  flex-basis: 40px;
+  width: 32px;
+  height: 32px;
+  flex-basis: 32px;
   background-size: contain;
 }
 
-#tooltip .plug .text {
-  flex-basis: calc(100% - 56px);
-  padding: 0 0 0 16px;
+#tooltip .plug > .text {
+  flex-basis: calc(100% - 32px);
+  padding: 0 0 0 20px;
   display: flex;
   flex-flow: row wrap;
   align-items: center;
@@ -288,11 +389,49 @@
   flex-basis: 100%;
 }
 
-#tooltip .plug .text .description {
+#tooltip .plug > .text > .description {
   color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   line-height: 1.4;
   white-space: pre-wrap;
+}
+
+#tooltip .plug .text .objectives {
+  flex-basis: 100%;
+  padding: 4px 0 0;
+  border: unset;
+}
+
+#tooltip .sockets.detailed-mode .plug > .text {
+  flex-basis: calc(100% - 16px);
+}
+
+#tooltip .sockets.detailed-mode .group {
+  padding: 0 0 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#tooltip .sockets.detailed-mode .group:last-child {
+  padding: 0;
+  border-bottom: none;
+}
+
+#tooltip .sockets.detailed-mode .plug .icon {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+}
+
+#tooltip .sockets.detailed-mode .plug .text .name {
+  margin: 0;
+}
+
+#tooltip .sockets.detailed-mode .plug > .text > .description {
+  display: none;
+}
+
+#tooltip .sockets.detailed-mode .plug .text .objectives {
+  margin-top: 3px;
 }
 
 #tooltip .intrinsic {
@@ -307,12 +446,45 @@
 #tooltip .description pre {
   padding: 16px 16px 12px;
   white-space: pre-wrap;
-  color: rgba(255, 255, 255, 0.8);
   line-height: 1.4;
   font-style: italic;
   font-size: 14px;
   letter-spacing: 0.8px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+#tooltip .quantity {
+  padding: 0 16px 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+#tooltip .quantity span {
+  color: #856621;
+}
+
+#tooltip .expiry {
+  padding: 12px 16px 16px;
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: #e12a1d;
+}
+
+#tooltip .frame.mod .description pre,
+#tooltip .frame.ui .description pre {
+  padding: 12px 16px 12px;
+  font-style: unset;
+  letter-spacing: unset;
+}
+
+#tooltip .frame.mod .description.has-stats pre,
+#tooltip .frame.ui .description.has-stats pre {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#tooltip .frame.ui .stats {
+  border-top: none;
 }
 
 #tooltip .frame .image.emblem {
@@ -367,7 +539,25 @@
   color: #fff;
 }
 
-#tooltip .frame .objective {
+#tooltip .frame.no-name .header {
+  padding: 0;
+}
+
+#tooltip .frame.no-name .header .name {
+  display: none;
+}
+
+#tooltip .frame.ui .header {
+  background-color: hsla(0, 0%, 0%, 0.9);
+  border-top: 5px solid rgba(214, 214, 214, 0.8);
+  color: #fff;
+}
+
+#tooltip .frame.ui .black {
+  background-color: hsla(0, 0%, 10%, 0.9);
+}
+
+/* #tooltip .frame .objective {
   padding: 16px 16px 12px;
   white-space: pre-wrap;
   color: rgba(255, 255, 255, 0.8);
@@ -375,12 +565,11 @@
   font-style: italic;
   font-size: 14px;
   letter-spacing: 0.8px;
-  color: rgba(255, 255, 255, 0.8);
-}
+} */
 
 #tooltip .frame .objectives {
   padding: 0 16px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  /* border-bottom: 1px solid rgba(255, 255, 255, 0.2); */
 }
 
 #tooltip .frame .objectives .progress {
@@ -389,6 +578,27 @@
 
 #tooltip .frame .objectives .progress:last-child {
   margin: 0;
+}
+
+#tooltip .frame .objectives .progress-bar.complete {
+  opacity: 0.8;
+}
+
+#tooltip .frame .objectives .progress-bar.complete .bar .fill {
+  background-color: rgba(90, 163, 102, 0);
+}
+
+#tooltip .frame .objectives > .text {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
+  font-size: 14px;
+  margin: 0 0 4px 24px;
+}
+
+#tooltip .frame .objectives > .text:last-child {
+  margin: 0 0 0 24px;
 }
 
 #tooltip .frame .rewards {
@@ -421,6 +631,100 @@
   margin: 0 10px 0 0;
 }
 
+#tooltip .frame.ui.name-only .header .name {
+  margin: 0;
+}
+
+#tooltip .frame.ui.sandbox-perk .black .perk {
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 32px auto;
+  grid-gap: 16px;
+}
+
+#tooltip .frame.ui.sandbox-perk .black .perk .image.icon {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+#tooltip .frame.ui.sandbox-perk .black .perk .description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#tooltip .frame.ui.subclass .header {
+  background-color: hsla(0, 0%, 17%, 0.9);
+  border-top: none;
+}
+
+#tooltip .frame.ui.subclass .black .image.screenshot {
+  display: none;
+}
+
+#tooltip .header::before {
+  content: attr(data-debugtip);
+  position: absolute;
+  top: -22px;
+  right: 0;
+  font-size: 14px;
+}
+
+#tooltip .frame.is-masterworked .header {
+  position: relative;
+}
+
+#tooltip .frame.is-masterworked .image.bg {
+  background-size: cover;
+  background-position: center top;
+}
+
+#tooltip .frame.is-masterworked .image.bg::before,
+#tooltip .frame.is-masterworked .image.bg::after {
+  content: ' ';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  animation: animation-masterwork-header 2s linear infinite;
+}
+
+@keyframes animation-masterwork-header {
+  0% {
+    background-position-x: 200%;
+  }
+  40% {
+    background-position-x: -200%;
+  }
+  100% {
+    background-position-x: -200%;
+  }
+}
+
+#tooltip .frame.is-masterworked .image.bg::before {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1), rgba(255, 255, 255, 0));
+  background-size: 200%;
+  background-repeat: no-repeat;
+  padding-bottom: 1.1%;
+  top: 0;
+}
+
+#tooltip .frame.is-masterworked .image.bg::after {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+  background-size: 200%;
+  background-repeat: no-repeat;
+  height: 100%;
+  bottom: 0;
+}
+
+#tooltip .frame.is-masterworked.exotic .image.bg::after {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+  background-size: 200%;
+  background-repeat: no-repeat;
+}
+
+
+
 @media screen and (max-width: 600px) {
   #tooltip {
     top: 0 !important;
@@ -431,6 +735,11 @@
     box-shadow: none;
     overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
+    backdrop-filter: brightness(0.6) blur(4px);
+  }
+
+  #tooltip .acrylic {
+    display: none;
   }
 
   #tooltip .window {
@@ -442,6 +751,6 @@
     position: relative;
     padding: initial;
     width: 100%;
-    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
   }
 }

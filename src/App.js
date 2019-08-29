@@ -1,250 +1,200 @@
-import React, { Component } from 'react';
-import { BrowserRouter as Router, Route, Redirect, Switch } from 'react-router-dom';
+import React from 'react';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { BrowserRouter, Route, Switch, Redirect } from 'react-router-dom';
+import { withTranslation } from 'react-i18next';
 import cx from 'classnames';
-import assign from 'lodash/assign';
-import GoogleAnalytics from './components/GoogleAnalytics';
-import packageJSON from '../package.json';
-import globals from './utils/globals';
-import dexie from './utils/dexie';
-import * as ls from './utils/localStorage';
-import i18n from './utils/i18n';
-import { withNamespaces } from 'react-i18next';
+
+import moment from 'moment';
+import 'moment/locale/de';
+import 'moment/locale/es';
+import 'moment/locale/fr';
+import 'moment/locale/it';
+// import 'moment/locale/ja';
+import 'moment/locale/ko';
+// import 'moment/locale/pl';
+import 'moment/locale/pt-br';
+// import 'moment/locale/ru';
 
 import './Core.css';
 import './App.css';
+import './components/PresentationNode.css';
 
-import Header from './components/Header';
+import './utils/i18n';
+import dexie from './utils/dexie';
+import * as bungie from './utils/bungie';
+import * as voluspa from './utils/voluspa';
+import GoogleAnalytics from './components/GoogleAnalytics';
+import store from './utils/reduxStore';
+import manifest from './utils/manifest';
+import * as ls from './utils/localStorage';
+
+import Header from './components/UI/Header';
 import Tooltip from './components/Tooltip';
-import Footer from './components/Footer';
-import Notifications from './components/Notifications';
+import Footer from './components/UI/Footer';
+import NotificationLink from './components/Notifications/NotificationLink';
+import NotificationProgress from './components/Notifications/NotificationProgress';
+import ServiceWorkerUpdate from './components/Notifications/ServiceWorkerUpdate';
+import RefreshService from './components/RefreshService';
 
+import ProfileRoutes from './ProfileRoutes';
+
+import Loading from './views/Loading';
 import Index from './views/Index';
 import CharacterSelect from './views/CharacterSelect';
-import Clan from './views/Clan';
-import Collections from './views/Collections';
-import Triumphs from './views/Triumphs';
-import Checklists from './views/Checklists';
-import Account from './views/Account';
-import Character from './views/Character';
-import ThisWeek from './views/ThisWeek';
-import Vendors from './views/Vendors';
+import Inspect from './views/Inspect';
+import Read from './views/Read';
 import Settings from './views/Settings';
-import Pride from './views/Pride';
 import Credits from './views/Credits';
-import Tools from './views/Tools';
-import ClanBannerBuilder from './views/Tools/ClanBannerBuilder';
+import Experiments from './views/Experiments';
+import Suggestions from './views/Suggestions';
+import FAQ from './views/FAQ';
+import ChaliceRecipes from './views/ChaliceRecipes';
 
-class App extends Component {
+import ClanBannerBuilder from './views/Experiments/ClanBannerBuilder';
+import DataInspector from './views/Experiments/DataInspector';
+import AnimatedEmblems from './views/Experiments/AnimatedEmblems';
+
+import OOB from './views/OOB';
+
+const RedirectRoute = props => <Route {...props} render={({ location }) => <Redirect to={{ pathname: '/character-select', state: { from: location } }} />} />;
+
+// Print timings of promises to console (and performance logger)
+// if we're running in development mode.
+async function timed(name, promise) {
+  if (process.env.NODE_ENV === 'development') console.time(name);
+  const result = await promise;
+  if (process.env.NODE_ENV === 'development') console.timeEnd(name);
+  return result;
+}
+
+class App extends React.Component {
   constructor(props) {
     super();
-    let user = ls.get('setting.user') ? ls.get('setting.user') : false;
     this.state = {
-      user: {
-        membershipType: user ? user.membershipType : false,
-        membershipId: user ? user.membershipId : false,
-        characterId: false,
-        response: false
-      },
-      manifest: {
-        state: false,
-        version: false,
-        settings: false
-      },
-      pageDefaut: false
+      status: {
+        code: false,
+        detail: false
+      }
     };
-    this.setPageDefault = this.setPageDefault.bind(this);
-    this.updateViewport = this.updateViewport.bind(this);
-    this.setUserReponse = this.setUserReponse.bind(this);
-    this.viewCharacters = this.viewCharacters.bind(this);
-    this.getVersionAndSettings = this.getVersionAndSettings.bind(this);
-    this.getManifest = this.getManifest.bind(this);
-    this.manifest = {};
-    this.bungieSettings = {};
-    this.currentLanguage = props.i18n.getCurrentLanguage();
-  }
 
-  setPageDefault = className => {
-    this.setState({
-      pageDefaut: className
+    this.currentLanguage = props.i18n.getCurrentLanguage();
+
+    // We do these as early as possible - we don't want to wait
+    // for the component to mount before starting the web requests
+    this.startupRequests = {
+      storedManifest: timed(
+        'storedManifest',
+        dexie
+          .table('manifest')
+          .toCollection()
+          .first()
+      ),
+      manifestIndex: timed('GetDestinyManifest', bungie.GetDestinyManifest()),
+      bungieSettings: timed('GetCommonSettings', bungie.GetCommonSettings()),
+      voluspaStatistics: timed('statistics', voluspa.statistics())
+    };
+
+    const profile = ls.get('setting.profile');
+
+    store.dispatch({
+      type: 'MEMBER_SET_BY_PROFILE_ROUTE',
+      payload: profile
     });
-  };
+
+    moment.defineLocale('en-sml', {
+      parentLocale: 'en',
+      relativeTime: {
+        future: 'in %s',
+        past: '%s ago',
+        s: 'now',
+        ss: '%ss',
+        m: '<1m',
+        mm: '%dm',
+        h: '1h',
+        hh: '%dh',
+        d: '1d',
+        dd: '%dd',
+        M: '1M',
+        MM: '%dM',
+        y: '1y',
+        yy: '%dy'
+      }
+    });
+
+    moment.locale(this.currentLanguage);
+  }
 
   updateViewport = () => {
     let width = window.innerWidth;
     let height = window.innerHeight;
-    this.setState({
-      viewport: {
-        width,
-        height
-      }
-    });
+    store.dispatch({ type: 'VIEWPORT_CHANGED', payload: { width, height } });
   };
 
-  setUserReponse = (membershipType, membershipId, characterId, response) => {
-    ls.set('setting.user', {
-      membershipType: membershipType,
-      membershipId: membershipId,
-      characterId: characterId
-    });
-    this.setState({
-      user: {
-        membershipType: membershipType,
-        membershipId: membershipId,
-        characterId: characterId,
-        response: response
-      }
-    });
-  };
-
-  viewCharacters = () => {
-    let state = this.state;
-    state.user.characterId = false;
-    this.setState(state);
-  };
-
-  getVersionAndSettings = () => {
-    const paths = [
-      {
-        name: 'manifest',
-        url: 'https://www.bungie.net/Platform/Destiny2/Manifest/'
-      },
-      {
-        name: 'settings',
-        url: 'https://www.bungie.net/Platform/Settings/'
-      }
-    ];
-
-    let requests = paths.map(path => {
-      return fetch(path.url, {
-        headers: {
-          'X-API-Key': globals.key.bungie
-        }
-      })
-        .then(response => {
-          return response.json();
-        })
-        .then(response => {
-          if (response.ErrorCode === 1) {
-            let object = {};
-            object[path.name] = response.Response;
-            return object;
-          }
-        });
-    });
-
-    return Promise.all(requests)
-      .then(responses => {
-        const response = assign(...responses);
-
-        // console.log(response)
-
-        // let state = this.state;
-        // state.manifest.settings = response.settings;
-        // this.setState(state);
-        this.bungieSettings = response.settings;
-
-        let availableLanguages = [];
-        for (var i in response.manifest.jsonWorldContentPaths) {
-          availableLanguages.push(i);
-        }
-        this.availableLanguages = availableLanguages;
-        return response.manifest.jsonWorldContentPaths[this.currentLanguage];
-      })
-      .catch(error => {
-        console.log(error);
-      });
-  };
-
-  getManifest = version => {
-    let state = this.state;
-    state.manifest.version = version;
-    state.manifest.state = 'fetching';
-    this.setState(state);
-
-    let manifest = async () => {
-      const request = await fetch(`https://www.bungie.net${version}`);
-      const response = await request.json();
-      return response;
-    };
-
-    manifest()
-      .then(manifest => {
-        let state = this.state;
-        state.manifest.state = 'almost';
-        this.setState(state);
-        dexie
-          .table('manifest')
-          .clear()
-          .then(() => {
-            dexie.table('manifest').add({
-              version: version,
-              value: manifest
-            });
-          })
-          .then(() => {
-            dexie
-              .table('manifest')
-              .toArray()
-              .then(manifest => {
-                this.manifest = manifest[0].value;
-                this.manifest.settings = this.bungieSettings;
-                let state = this.state;
-                state.manifest.state = 'ready';
-                this.setState(state);
-              });
-          });
-      })
-      .catch(error => {
-        console.log(error);
-      });
-  };
-
-  componentDidMount() {
+  async componentDidMount() {
     this.updateViewport();
     window.addEventListener('resize', this.updateViewport);
 
-    dexie
-      .table('manifest')
-      .toArray()
-      .then(manifest => {
-        if (manifest.length > 0) {
-          let state = this.state;
-          state.manifest.version = manifest[0].version;
-          this.setState(state);
-        }
-      })
-      .then(() => {
-        this.getVersionAndSettings()
-          .then(version => {
-            if (version !== this.state.manifest.version) {
-              this.getManifest(version);
-            } else {
-              dexie
-                .table('manifest')
-                .toArray()
-                .then(manifest => {
-                  if (manifest.length > 0) {
-                    this.manifest = manifest[0].value;
-                    this.manifest.settings = this.bungieSettings;
-                    let state = this.state;
-                    state.manifest.state = 'ready';
-                    this.setState(state);
-                  } else {
-                    console.log('something is wrong');
-                    let state = this.state;
-                    state.manifest.state = 'error';
-                    this.setState(state);
-                  }
-                });
-            }
-          })
-          .catch(error => {
-            console.log(error);
-            let state = this.state;
-            state.manifest.state = 'error';
-            this.setState(state);
-          });
-      });
+    try {
+      await timed('setUpManifest', this.setUpManifest());
+    } catch (e) {
+      console.log(e);
+
+      if (e.message === 'Failed to fetch') {
+        this.setState({ status: { code: 'error_fetchingManifest', detail: e } });
+      } else if (e.message === 'maintenance') {
+        this.setState({ status: { code: 'error_maintenance', detail: e } });
+      } else {
+        this.setState({ status: { code: 'error_setUpManifest', detail: e } });
+      }
+    }
+  }
+
+  async setUpManifest() {
+    this.setState({ status: { code: 'checkManifest' } });
+    const storedManifest = await this.startupRequests.storedManifest;
+    const manifestIndex = await this.startupRequests.manifestIndex;
+
+    const manifestLanuage = this.currentLanguage;
+    const currentVersion = manifestIndex.jsonWorldContentPaths[manifestLanuage];
+    let tmpManifest = null;
+
+    if (!storedManifest || currentVersion !== storedManifest.version) {
+      // Manifest missing from IndexedDB or doesn't match the current version -
+      // download a new one and store it.
+      tmpManifest = await this.downloadNewManifest(currentVersion);
+    } else {
+      tmpManifest = storedManifest.value;
+    }
+
+    tmpManifest.settings = await this.startupRequests.bungieSettings;
+
+    if (tmpManifest.settings && tmpManifest.settings.systems && !tmpManifest.settings.systems.D2Profiles.enabled) {
+      throw new Error('maintenance');
+    }
+
+    this.availableLanguages = Object.keys(manifestIndex.jsonWorldContentPaths);
+
+    tmpManifest.statistics = (await this.startupRequests.voluspaStatistics) || {};
+
+    manifest.set(tmpManifest, manifestLanuage);
+
+    this.setState({ status: { code: 'ready' } });
+  }
+
+  async downloadNewManifest(version) {
+    this.setState({ status: { code: 'fetchManifest' } });
+    const manifest = await timed('downloadManifest', bungie.manifest(version));
+
+    this.setState({ status: { code: 'setManifest' } });
+    try {
+      await timed('clearTable', dexie.table('manifest').clear());
+      await timed('storeManifest', dexie.table('manifest').add({ version: version, value: manifest }));
+    } catch (error) {
+      // Can't write a manifest if we're in private mode in safari
+      console.warn(`Error while trying to store the manifest in indexeddb: ${error}`);
+    }
+    return manifest;
   }
 
   componentWillUnmount() {
@@ -252,238 +202,92 @@ class App extends Component {
   }
 
   render() {
-    const { t } = this.props;
     if (!window.ga) {
       GoogleAnalytics.init();
     }
 
-    if (this.state.manifest.state !== 'ready') {
-      if (this.state.manifest.state === 'error') {
-        return (
-          <div className='view' id='loading'>
-            <div className='logo-feature'>
-              <div className='device'>
-                <span className='destiny-clovis_bray_device' />
-              </div>
-            </div>
-            <h4>Braytech {packageJSON.version}</h4>
-            <div className='download'>{t('Error')}</div>
-          </div>
-        );
-      } else if (this.state.manifest.state === 'version') {
-        return (
-          <div className='view' id='loading'>
-            <div className='logo-feature'>
-              <div className='device'>
-                <span className='destiny-clovis_bray_device' />
-              </div>
-            </div>
-            <h4>Braytech {packageJSON.version}</h4>
-            <div className='download'>{t('Checking data')}</div>
-          </div>
-        );
-      } else if (this.state.manifest.state === 'fetching') {
-        return (
-          <div className='view' id='loading'>
-            <div className='logo-feature'>
-              <div className='device'>
-                <span className='destiny-clovis_bray_device' />
-              </div>
-            </div>
-            <h4>Braytech {packageJSON.version}</h4>
-            <div className='download'>{t('Downloading manifest data')}</div>
-          </div>
-        );
-      } else if (this.state.manifest.state === 'almost') {
-        return (
-          <div className='view' id='loading'>
-            <div className='logo-feature'>
-              <div className='device'>
-                <span className='destiny-clovis_bray_device' />
-              </div>
-            </div>
-            <h4>Braytech {packageJSON.version}</h4>
-            <div className='download'>{t('So close')}</div>
-          </div>
-        );
-      } else {
-        return (
-          <div className='view' id='loading'>
-            <div className='logo-feature'>
-              <div className='device'>
-                <span className='destiny-clovis_bray_device' />
-              </div>
-            </div>
-            <h4>Braytech {packageJSON.version}</h4>
-            <div className='download'>{t('Preparing')}</div>
-          </div>
-        );
-      }
-    } else {
-      if (this.state.user.response && this.state.user.characterId) {
-        return (
-          <Router>
-            <div className={cx('wrapper', this.state.pageDefaut ? this.state.pageDefaut : null)}>
-              <Route path='/' render={route => <Notifications updateAvailable={this.props.updateAvailable} />} />
-              <GoogleAnalytics.RouteTracker />
-              <div className='main'>
-                <Route path='/' render={route => <Header route={route} {...this.state} manifest={this.manifest} />} />
-                <Switch>
-                  <Route path='/character-select' render={route => <CharacterSelect location={route.location} setPageDefault={this.setPageDefault} setUserReponse={this.setUserReponse} user={this.state.user} viewport={this.state.viewport} manifest={this.manifest} />} />
-                  <Route
-                    path='/account'
-                    exact
-                    render={() => (
-                      <>
-                        <Account {...this.state.user} manifest={this.manifest} />
-                        <Tooltip manifest={this.manifest} />
-                      </>
-                    )}
-                  />
-                  <Route path='/clan/:view?/:subView?' exact render={route => <Clan {...this.state.user} manifest={this.manifest} view={route.match.params.view} subView={route.match.params.subView} />} />
-                  <Route path='/character' exact render={() => <Character {...this.state.user} viewport={this.state.viewport} manifest={this.manifest} />} />
-                  <Route path='/checklists' exact render={() => <Checklists {...this.state.user} viewport={this.state.viewport} manifest={this.manifest} />} />
-                  <Route
-                    path='/collections/:primary?/:secondary?/:tertiary?/:quaternary?'
-                    render={route => (
-                      <>
-                        <Collections {...route} {...this.state.user} manifest={this.manifest} />
-                        <Tooltip manifest={this.manifest} />
-                      </>
-                    )}
-                  />
-                  <Route path='/triumphs/:primary?/:secondary?/:tertiary?/:quaternary?' render={route => <Triumphs {...route} {...this.state.user} manifest={this.manifest} />} />
-                  <Route
-                    path='/this-week'
-                    exact
-                    render={() => (
-                      <>
-                        <ThisWeek {...this.state.user} manifest={this.manifest} />
-                        <Tooltip manifest={this.manifest} />
-                      </>
-                    )}
-                  />
-                  <Route path='/vendors/:hash?' exact render={route => <Vendors vendorHash={route.match.params.hash} {...this.state.user} setPageDefault={this.setPageDefault} manifest={this.manifest} />} />
-                  <Route path='/settings' exact render={() => <Settings {...this.state.user} manifest={this.manifest} availableLanguages={this.availableLanguages} setPageDefault={this.setPageDefault} />} />
-                  <Route path='/pride' exact render={() => <Pride setPageDefault={this.setPageDefault} />} />
-                  <Route path='/credits' exact render={() => <Credits setPageDefault={this.setPageDefault} />} />
-                  <Route path='/tools' exact render={() => <Tools setPageDefault={this.setPageDefault} />} />
-                  <Route path='/tools/clan-banner-builder/:decalBackgroundColorId?/:decalColorId?/:decalId?/:gonfalonColorId?/:gonfalonDetailColorId?/:gonfalonDetailId?/:gonfalonId?/' exact render={route => <ClanBannerBuilder {...route} setPageDefault={this.setPageDefault} />} />
-                  <Route path='/' exact render={() => <Index setPageDefault={this.setPageDefault} />} />
-                </Switch>
-              </div>
-              <Route path='/' render={route => <Footer route={route} />} />
-            </div>
-          </Router>
-        );
-      } else {
-        return (
-          <Router>
-            <div className={cx('wrapper', this.state.pageDefaut ? this.state.pageDefaut : null)}>
-              <Route path='/' render={route => <Notifications updateAvailable={this.props.updateAvailable} />} />
-              <GoogleAnalytics.RouteTracker />
-              <div className='main'>
-                <Route path='/' render={route => <Header route={route} {...this.state} manifest={this.manifest} />} />
-                <Switch>
-                  <Route path='/character-select' render={route => <CharacterSelect location={route.location} setPageDefault={this.setPageDefault} setUserReponse={this.setUserReponse} user={this.state.user} viewport={this.state.viewport} manifest={this.manifest} />} />
-                  <Route
-                    path='/account'
-                    exact
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route
-                    path='/clan/:view?/:subView?'
-                    exact
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route
-                    path='/character'
-                    exact
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route
-                    path='/checklists'
-                    exact
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route
-                    path='/collections/:primary?/:secondary?/:tertiary?/:quaternary?'
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route
-                    path='/triumphs/:primary?/:secondary?/:tertiary?/:quaternary?'
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route
-                    path='/this-week'
-                    exact
-                    render={route => (
-                      <Redirect
-                        to={{
-                          pathname: '/character-select',
-                          state: { from: route.location }
-                        }}
-                      />
-                    )}
-                  />
-                  <Route path='/vendors/:hash?' exact render={route => <Vendors vendorHash={route.match.params.hash} setPageDefault={this.setPageDefault} manifest={this.manifest} />} />
-                  <Route path='/settings' exact render={() => <Settings {...this.state.user} manifest={this.manifest} availableLanguages={this.availableLanguages} setPageDefault={this.setPageDefault} />} />
-                  <Route path='/pride' exact render={() => <Pride setPageDefault={this.setPageDefault} />} />
-                  <Route path='/credits' exact render={() => <Credits setPageDefault={this.setPageDefault} />} />
-                  <Route path='/tools' exact render={() => <Tools setPageDefault={this.setPageDefault} />} />
-                  <Route path='/tools/clan-banner-builder/:decalBackgroundColorId?/:decalColorId?/:decalId?/:gonfalonColorId?/:gonfalonDetailColorId?/:gonfalonDetailId?/:gonfalonId?/' exact render={route => <ClanBannerBuilder {...route} setPageDefault={this.setPageDefault} />} />
-                  <Route path='/' render={() => <Index setPageDefault={this.setPageDefault} />} />
-                </Switch>
-              </div>
-              <Route path='/' render={route => <Footer route={route} />} />
-            </div>
-          </Router>
-        );
-      }
+    if (this.state.status.code !== 'ready') {
+      // if (this.state.status.code !== 'ready' || this.state.status.code === 'ready') {
+      return (
+        <div className={cx('wrapper', this.props.theme.selected)}>
+          <Loading state={this.state.status} />
+          <NotificationLink />
+        </div>
+      );
     }
+
+    return (
+      <BrowserRouter>
+        <Route
+          render={route => (
+            <div className={cx('wrapper', this.props.theme.selected, { standalone: window.matchMedia('(display-mode: standalone)').matches })}>
+              <ServiceWorkerUpdate {...this.props} />
+              <NotificationLink />
+              <NotificationProgress />
+
+              {/* Don't run the refresh service if we're currently selecting
+                a character, as the refresh will cause the member to
+                continually reload itself */}
+              <Route path='/character-select' children={({ match, ...rest }) => !match && <RefreshService {...this.props} />} />
+
+              <Tooltip {...route} onRef={ref => (this.TooltipComponent = ref)} />
+              <Route component={GoogleAnalytics.GoogleAnalytics} />
+              <div className='main'>
+                <Switch>
+                  <Route path='/:membershipType([1|2|4])/:membershipId([0-9]+)/:characterId([0-9]+)?' render={route => <ProfileRoutes {...route} />} />
+                  <Route
+                    render={() => (
+                      <>
+                        <Route render={route => <Header route={route} {...this.state} {...this.props} />} />
+                        <Switch>
+                          <RedirectRoute path='/clan' />
+                          <RedirectRoute path='/character' exact />
+                          <RedirectRoute path='/legend' exact />
+                          <RedirectRoute path='/checklists' exact />
+                          <RedirectRoute path='/collections/' />
+                          <RedirectRoute path='/triumphs' />
+                          <RedirectRoute path='/this-week' exact />
+                          <RedirectRoute path='/reports' />
+                          <RedirectRoute path='/now' exact />
+                          <RedirectRoute path='/pursuits' />
+
+                          <Route path='/character-select' exact component={CharacterSelect} />
+                          <Route path='/inspect/:hash?' exact component={Inspect} />
+                          <Route path='/read/:kind?/:hash?' exact component={Read} />
+                          <Route path='/settings' exact render={route => <Settings {...route} availableLanguages={this.availableLanguages} />} />
+                          <Route path='/suggestions/:id?' render={route => <Suggestions {...route} />} />
+                          <Route path='/faq' exact component={FAQ} />
+                          <Route path='/credits' exact component={Credits} />
+                          <Route path='/chalice-tool/:rune1?/:rune2?/:rune3?' render={route => <ChaliceRecipes {...route} />} />
+                          <Route path='/experiments' exact component={Experiments} />
+                          <Route path='/experiments/clan-banner-builder/:decalBackgroundColorId?/:decalColorId?/:decalId?/:gonfalonColorId?/:gonfalonDetailColorId?/:gonfalonDetailId?/:gonfalonId?/' exact component={ClanBannerBuilder} />
+                          <Route path='/experiments/data-inspector' exact component={DataInspector} />
+                          <Route path='/experiments/animated-emblems' exact render={route => <AnimatedEmblems />} />
+                          <Route path='/oob' component={OOB} />
+                          <Route path='/' component={Index} />
+                        </Switch>
+                      </>
+                    )}
+                  />
+                </Switch>
+              </div>
+              <Footer />
+            </div>
+          )}
+        />
+      </BrowserRouter>
+    );
   }
 }
 
-export default withNamespaces()(App);
+function mapStateToProps(state, ownProps) {
+  return {
+    member: state.member,
+    theme: state.theme
+  };
+}
+
+export default compose(
+  connect(mapStateToProps),
+  withTranslation()
+)(App);

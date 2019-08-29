@@ -1,43 +1,41 @@
-import React, { Component } from 'react';
+import { Component } from 'react';
 import PropTypes from 'prop-types';
 import ReactGA from 'react-ga';
-import { Route } from 'react-router-dom';
 
 import packageJSON from '../../package.json';
 
 class GoogleAnalytics extends Component {
-  componentDidMount () {
-    this.logPageChange(
-      this.props.location.pathname,
-      this.props.location.search
-    )
+  componentDidMount() {
+    this.logPageChange(this.props.location.pathname, this.props.location.search);
   }
 
-  componentDidUpdate ({ location: prevLocation }) {
-    const { location: { pathname, search } } = this.props
-    const isDifferentPathname = pathname !== prevLocation.pathname
-    const isDifferentSearch = search !== prevLocation.search
+  componentDidUpdate({ location: prevLocation }) {
+    const {
+      location: { pathname, search }
+    } = this.props;
+    const isDifferentPathname = pathname !== prevLocation.pathname;
+    const isDifferentSearch = search !== prevLocation.search;
 
     if (isDifferentPathname || isDifferentSearch) {
-      this.logPageChange(pathname, search)
+      this.logPageChange(pathname, search);
     }
   }
 
-  logPageChange (pathname, search = '') {
-    const page = pathname + search
-    const { location } = window
+  logPageChange(pathname, search = '') {
+    const page = pathname + search;
+    const { location } = window;
     ReactGA.set({
       page,
       location: `${location.origin}${page}`,
       appName: 'Braytech',
       appVersion: packageJSON.version,
       ...this.props.options
-    })
-    ReactGA.pageview(page)
+    });
+    ReactGA.pageview(page);
   }
 
-  render () {
-    return null
+  render() {
+    return null;
   }
 }
 
@@ -47,29 +45,22 @@ GoogleAnalytics.propTypes = {
     search: PropTypes.string
   }).isRequired,
   options: PropTypes.object
-}
-
-const RouteTracker = () =>
-  <Route component={GoogleAnalytics} />
+};
 
 const init = (options = {}) => {
-  //const env = window._env_ || {}
-  const isGAEnabled = !!process.env.REACT_APP_GA_TRACKING_ID
+  const isGAEnabled = !!process.env.REACT_APP_GA_TRACKING_ID;
 
   if (isGAEnabled) {
-    ReactGA.initialize(
-      process.env.REACT_APP_GA_TRACKING_ID, {
-        debug: process.env.REACT_APP_GA_DEBUG === 'true',
-        ...options
-      }
-    )
+    ReactGA.initialize(process.env.REACT_APP_BETA ? process.env.REACT_APP_GA_TRACKING_ID_BETA : process.env.REACT_APP_GA_TRACKING_ID, {
+      debug: process.env.REACT_APP_GA_DEBUG === 'true',
+      ...options
+    });
   }
 
-  return isGAEnabled
-}
+  return isGAEnabled;
+};
 
 export default {
   GoogleAnalytics,
-  RouteTracker,
   init
-}
+};

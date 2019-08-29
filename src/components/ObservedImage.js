@@ -1,20 +1,22 @@
 import React from 'react';
 import cx from 'classnames';
 
-class ObservedImage extends React.Component {
+class ObservedImageInner extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       downloaded: false,
       styles: {}
     };
-
-    this.observe = this.observe.bind(this);
   }
 
   observe = () => {
     const src = this.props.src;
     const ratio = this.props.ratio ? this.props.ratio : false;
+
+    if (this.state.downloaded) {
+      return;
+    }
 
     if (ratio) {
       this.setState({
@@ -28,7 +30,7 @@ class ObservedImage extends React.Component {
       entries.forEach(entry => {
         const { isIntersecting } = entry;
 
-        if (isIntersecting) {
+        if (isIntersecting || this.props.noConstraints) {
           this.image = new window.Image();
           this.image.onload = bmp => {
             let ratio = bmp.target.height / bmp.target.width;
@@ -53,7 +55,6 @@ class ObservedImage extends React.Component {
             if (this.observer) {
               this.observer = this.observer.disconnect();
             }
-            
           };
 
           this.image.src = src;
@@ -77,24 +78,14 @@ class ObservedImage extends React.Component {
     }
   }
 
-  componentDidUpdate(prevProps) {
-    if (prevProps.src !== this.props.src) {
-      this.setState({
-        downloaded: false,
-        styles: {}
-      });
-      this.observe();
-    }
-  }
-
   render() {
-    const classNames = this.props.className;
+    const { className, noConstraints, ...attributes } = this.props;
 
     return (
       <div
-        {...this.props}
+        {...attributes}
         ref={el => (this.element = el)}
-        className={cx(classNames, {
+        className={cx(className, {
           dl: this.state.downloaded
         })}
         style={this.state.styles}
@@ -102,5 +93,10 @@ class ObservedImage extends React.Component {
     );
   }
 }
+
+// using Key here forces a full component remount when we are given a new
+// src, avoiding weirdness where the src changes but the component is still
+// downloading the old image
+const ObservedImage = props => <ObservedImageInner {...props} key={props.src} />;
 
 export default ObservedImage;

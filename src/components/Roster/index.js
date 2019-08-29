@@ -1,405 +1,337 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import assign from 'lodash/assign';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { withTranslation } from 'react-i18next';
 import cx from 'classnames';
-import Moment from 'react-moment';
+import moment from 'moment';
 import orderBy from 'lodash/orderBy';
-import globals from '../../utils/globals';
-import rgbToHsl from '../../utils/rgbToHsl';
-import Spinner from '../../components/Spinner';
-import ObservedImage from '../../components/ObservedImage';
 
-import { classTypeToString } from '../../utils/destinyUtils';
+import * as ls from '../../utils/localStorage';
+import * as utils from '../../utils/destinyUtils';
+import { ProfileLink } from '../../components/ProfileLink';
+import getGroupMembers from '../../utils/getGroupMembers';
+import MemberLink from '../MemberLink';
 
 import './styles.css';
-import { withNamespaces } from 'react-i18next';
 
 class Roster extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
-      members: [],
-      membersFetched: 0,
-      freshnessCycles: 0,
-      freshnessTimeout: false
+      order: {
+        sort: false,
+        dir: 'desc'
+      }
     };
-
-    this.ProfileResponse = this.ProfileResponse.bind(this);
   }
 
-  ProfileResponse = async member => {
-    let requests;
-    if (this.props.mini) {
-      requests = [
-        {
-          name: 'profile',
-          path: `https://www.bungie.net/Platform/Destiny2/${member.destinyUserInfo.membershipType}/Profile/${member.destinyUserInfo.membershipId}/?components=100,200,204`
-        }
-      ];
-    } else {
-      requests = [
-        {
-          name: 'profile',
-          path: `https://www.bungie.net/Platform/Destiny2/${member.destinyUserInfo.membershipType}/Profile/${member.destinyUserInfo.membershipId}/?components=100,200,202,204,900`
-        }
-        // {
-        //   name: 'stats',
-        //   path: `https://www.bungie.net/Platform/Destiny2/${member.destinyUserInfo.membershipType}/Account/${member.destinyUserInfo.membershipId}/Character/0/Stats/?groups=0,0&modes=3,4,5,6,16,19,63&periodType=0`
-        // }
-      ];
-    }
-
-    let fetches = requests.map(async request => {
-      const get = await fetch(request.path, {
-        headers: {
-          'X-API-Key': globals.key.bungie
-        }
-      });
-      const response = await get.json();
-      let object = {};
-      object[request.name] = response;
-      return object;
-    });
-
-    try {
-      const promises = await Promise.all(fetches);
-      let result = assign(...promises);
-      result.member = member;
-      return result;
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  rollCall = (members = this.props.members, updateOnly = false) => {
-    if (members) {
-      members.Response.results.forEach(member => {
-        if ((updateOnly && !member.isOnline) || (this.props.mini && !member.isOnline)) {
-          this.setState(prevState => ({
-            membersFetched: this.state.membersFetched + 1,
-            freshnessTimeout: this.props.members.Response.results.length === this.state.membersFetched + 1 ? false : this.state.freshnessTimeout
-          }));
-          return;
-        }
-        this.ProfileResponse(member)
-          .then(response => {
-            if (response.profile && response.profile.ErrorCode !== 1) {
-              console.warn(member.destinyUserInfo.membershipType + '/' + member.destinyUserInfo.membershipId + ' - ' + response.profile.Message);
-              this.setState(prevState => ({
-                membersFetched: this.state.membersFetched + 1,
-                freshnessTimeout: this.props.members.Response.results.length === this.state.membersFetched + 1 ? false : this.state.freshnessTimeout
-              }));
-              return;
-            }
-            if (response.stats && response.stats.ErrorCode !== 1) {
-              console.warn(member.destinyUserInfo.membershipType + '/' + member.destinyUserInfo.membershipId + ' - ' + response.stats.Message);
-              this.setState(prevState => ({
-                membersFetched: this.state.membersFetched + 1,
-                freshnessTimeout: this.props.members.Response.results.length === this.state.membersFetched + 1 ? false : this.state.freshnessTimeout
-              }));
-              return;
-            }
-
-            if (response.profile) {
-              response.profile.Response.characters.data = Object.values(response.profile.Response.characters.data).sort(function(a, b) {
-                return parseInt(b.minutesPlayedTotal) - parseInt(a.minutesPlayedTotal);
-              });
-            }
-
-            if (response.stats) {
-              response = {
-                member: response.member,
-                profile: response.profile.Response,
-                stats: response.stats.Response
-              };
-            } else {
-              response = {
-                member: response.member,
-                profile: response.profile.Response
-              };
-            }
-
-            this.setState(prevState => {
-              let updatedMembers = [...prevState.members];
-
-              let index = updatedMembers.length > 0 ? updatedMembers.findIndex(prevMember => prevMember.member.destinyUserInfo.membershipId === member.destinyUserInfo.membershipId) : -1;
-              if (index > -1) {
-                updatedMembers[index] = response;
-                // console.log(`${member.destinyUserInfo.displayName} updated`);
-              } else {
-                updatedMembers.push(response);
-              }
-
-              return {
-                members: updatedMembers,
-                membersFetched: this.state.membersFetched + 1,
-                freshnessTimeout: this.props.members.Response.results.length === this.state.membersFetched + 1 ? false : this.state.freshnessTimeout
-              };
-            });
-          })
-          .catch(error => {
-            console.log(error);
-            this.setState(prevState => ({
-              membersFetched: this.state.membersFetched + 1,
-              freshnessTimeout: this.props.members.Response.results.length === this.state.membersFetched + 1 ? false : this.state.freshnessTimeout
-            }));
-          });
-      });
-    }
-  };
-
-  groupFetch = async groupId => {
-    let requests = [
-      {
-        name: 'members',
-        path: `https://www.bungie.net/Platform/GroupV2/${groupId}/Members/`
-      }
-    ];
-
-    let fetches = requests.map(request => {
-      return fetch(request.path, {
-        headers: {
-          'X-API-Key': globals.key.bungie
-        }
-      })
-        .then(response => {
-          return response.json();
-        })
-        .then(fetch => {
-          let object = {};
-          object[request.name] = fetch;
-          return object;
-        });
-    });
-
-    return Promise.all(fetches)
-      .then(promises => {
-        return assign(...promises);
-      })
-      .catch(error => {
-        console.log(error);
-      });
-  };
-
   componentDidMount() {
-    this.rollCall();
+    const { member } = this.props;
+    const group = member.data.groups.results.length > 0 ? member.data.groups.results[0].group : false;
+
+    if (group) {
+      this.callGetGroupMembers(group);
+      this.startInterval();
+    }
+  }
+
+  callGetGroupMembers = () => {
+    const { member, groupMembers } = this.props;
+    const result = member.data.groups.results.length > 0 ? member.data.groups.results[0] : false;
+
+    const auth = ls.get('setting.auth');
+    const isAuthed = auth && auth.destinyMemberships && auth.destinyMemberships.find(m => m.membershipId === member.membershipId);
+
+    let now = new Date();
+
+    if (result && (now - groupMembers.lastUpdated > 30000 || result.group.groupId !== groupMembers.groupId)) {
+      getGroupMembers(result.group, result.member.memberType > 2 && isAuthed);
+    }
+  };
+
+  startInterval() {
+    this.refreshClanDataInterval = window.setInterval(this.callGetGroupMembers, 60000);
+  }
+
+  clearInterval() {
+    window.clearInterval(this.refreshClanDataInterval);
   }
 
   componentWillUnmount() {
-    clearTimeout(this.state.freshnessTimeout);
+    this.clearInterval();
   }
 
-  increaseFreshness = () => {
-    // console.log(`Shibuya Roll Call: ${this.state.freshnessCycles + 1}`);
-    let groups = this.props.response.groups;
-    let clan = groups.results.length > 0 ? groups.results[0].group : false;
-    this.groupFetch(clan.groupId)
-      .then(response => {
-        this.setState({ freshnessCycles: this.state.freshnessCycles + 1 });
-        this.rollCall(response.members, true);
-      })
-      .catch(error => {
-        console.log(error);
-        this.setState(prevState => ({
-          membersFetched: this.props.members.Response.results.length,
-          freshnessTimeout: false
-        }));
-      });
+  changeSortTo = to => {
+    this.setState((prevState, props) => {
+      prevState.order.dir = prevState.order.sort === to && prevState.order.dir === 'desc' ? 'asc' : 'desc';
+      prevState.order.sort = to;
+      return prevState;
+    });
   };
 
-  componentDidUpdate() {
-    if (this.props.keepFresh && !this.state.freshnessTimeout && this.props.members.Response.results.length === this.state.membersFetched) {
-      // console.log('See you in 30s');
-      let timeout = setTimeout(this.increaseFreshness, 30000);
-      this.setState({ freshnessTimeout: timeout, membersFetched: 0 });
+  calculateResets = (progressionHash, characterId, characterProgressions) => {
+    return {
+      current: characterProgressions[characterId].progressions[progressionHash] && Number.isInteger(characterProgressions[characterId].progressions[progressionHash].currentResetCount) ? characterProgressions[characterId].progressions[progressionHash].currentResetCount : '?',
+      total: characterProgressions[characterId].progressions[progressionHash] && characterProgressions[characterId].progressions[progressionHash].seasonResets
+        ? characterProgressions[characterId].progressions[progressionHash].seasonResets.reduce((acc, curr) => {
+          if (curr.season > 3) {
+            return acc + curr.resets;
+          } else {
+            return acc;
+          }
+        }, 0)
+        : '?'
     }
-  }
+  };
 
   render() {
-    const { t } = this.props;
-    const manifest = this.props.manifest;
-    const mini = this.props.mini;
-    const linked = this.props.linked;
-    const isOnline = this.props.isOnline;
+    const { t, member, groupMembers, mini, showOnline = false } = this.props;
 
     let members = [];
-    if (this.state.members.length > 0) {
-      let results = isOnline ? this.state.members.filter(result => result.member.isOnline) : this.state.members;
+    let results = showOnline ? groupMembers.members.filter(r => r.isOnline) : groupMembers.members;
 
-      results.forEach(member => {
-        let blueberry = new Date().getTime() - new Date(member.member.joinDate).getTime() < 1209600000 ? true : false;
+    results.forEach(m => {
+      let isPrivate = !m.profile || (!m.profile.characterActivities.data || !m.profile.characters.data.length);
+      let isSelf = !isPrivate ? m.profile.profile.data.userInfo.membershipType.toString() === member.membershipType && m.profile.profile.data.userInfo.membershipId === member.membershipId : false;
+      let { lastPlayed, lastActivity, lastCharacter, display } = utils.lastPlayerActivity(m);
+      let triumphScore = !isPrivate ? m.profile.profileRecords.data.score : 0;
+      let valorPoints = !isPrivate ? m.profile.characterProgressions.data[m.profile.characters.data[0].characterId].progressions[2626549951].currentProgress : 0;
+      let valorResets = !isPrivate ? this.calculateResets(3882308435, m.profile.characters.data[0].characterId, m.profile.characterProgressions.data).total : 0;
+      let gloryPoints = !isPrivate ? m.profile.characterProgressions.data[m.profile.characters.data[0].characterId].progressions[2000925172].currentProgress : 0;
+      let infamyPoints = !isPrivate ? m.profile.characterProgressions.data[m.profile.characters.data[0].characterId].progressions[2772425241].currentProgress : 0;
+      let infamyResets = !isPrivate ? this.calculateResets(2772425241, m.profile.characters.data[0].characterId, m.profile.characterProgressions.data).total : 0;
+      let characterIds = !isPrivate ? m.profile.characters.data.map(c => c.characterId) : [];
+      let weeklyXp = !isPrivate ? characterIds.reduce((currentValue, characterId) => {
+        let characterProgress = m.profile.characterProgressions.data[characterId].progressions[540048094].weeklyProgress || 0;
+        return characterProgress + currentValue;
+      }, 0) : 0;
 
-        if (!member.profile.characterActivities.data) {
-          if (!mini) {
-            members.push({
-              isOnline: member.member.isOnline,
-              lastActive: new Date(member.profile.profile.data.dateLastPlayed).getTime(),
-              lastActivity: 0,
-              element: (
-                <li key={member.member.destinyUserInfo.membershipId} className={cx({ linked: linked, isOnline: member.member.isOnline, blueberry: blueberry }, 'no-character', 'error')}>
-                  <div className='icon black' />
-                  <div className='displayName'>{member.member.destinyUserInfo.displayName}</div>
-                  <div className='error'>{t('Private profile')}</div>
-                  <div className='activity'>
-                    <Moment fromNow>{member.profile.profile.data.dateLastPlayed}</Moment>
-                  </div>
+      let totalValor = utils.totalValor();
+      let totalInfamy = utils.totalInfamy();
+
+      valorPoints = valorResets * totalValor + valorPoints;
+      infamyPoints = infamyResets * totalInfamy + infamyPoints;
+
+      /*
+
+        lastPlayed:     Date
+        lastActivity:   Object
+        lastCharacter:  Object
+        lastMode:       Object
+        display:        String
+
+      */
+
+      // if (m.isOnline) {
+      //   console.log(lastPlayed);
+      // }
+
+      members.push({
+        sorts: {
+          private: isPrivate,
+          isOnline: m.isOnline,
+          lastPlayed,
+          lastActivity,
+          lastCharacter: !isPrivate ? lastCharacter : false,
+          triumphScore,
+          gloryPoints,
+          valorPoints,
+          infamyPoints,
+          weeklyXp: weeklyXp / characterIds.length * 5000
+        },
+        el: {
+          full: (
+            <li key={m.destinyUserInfo.membershipType + m.destinyUserInfo.membershipId} className={cx('row', { self: isSelf })}>
+              <ul>
+                <li className='col member'>
+                  <MemberLink type={m.destinyUserInfo.membershipType} id={m.destinyUserInfo.membershipId} groupId={m.destinyUserInfo.groupId} displayName={m.destinyUserInfo.displayName} hideEmblemIcon={!m.isOnline} />
                 </li>
-              )
-            });
-          }
-          return;
-        }
-
-        let lastCharacterActivity = Object.entries(member.profile.characterActivities.data);
-        lastCharacterActivity = orderBy(lastCharacterActivity, [character => character[1].dateActivityStarted], ['desc']);
-
-        lastCharacterActivity = lastCharacterActivity.length > 0 ? lastCharacterActivity[0] : false;
-
-        let lastCharacterTime = Object.entries(member.profile.characterActivities.data);
-        lastCharacterTime = orderBy(lastCharacterTime, [character => character[1].dateActivityStarted], ['desc']);
-
-        // console.log(member, lastCharacterActivity, lastCharacterTime)
-        // console.log(lastCharacterTime, member.profile.characterActivities.data);
-        // console.log(member,, lastCharacterActivity);
-
-        if (lastCharacterActivity || lastCharacterTime) {
-          let lastCharacterId = lastCharacterActivity ? lastCharacterActivity[0] : lastCharacterTime[0];
-          let lastActivity = lastCharacterActivity ? lastCharacterActivity[1] : false;
-
-          let lastCharacter = member.profile.characters.data.find(character => character.characterId === lastCharacterId);
-
-          // let hsl = rgbToHsl(lastCharacter.emblemColor.red, lastCharacter.emblemColor.green, lastCharacter.emblemColor.blue);
-          //  style={{ backgroundColor: `hsl(${hsl.h * 360}deg,${Math.max(hsl.s, 0.20) * 100}%,${Math.max(hsl.l, 0.30) * 100}%)` }}
-
-          if (mini) {
-            members.push({
-              isOnline: member.member.isOnline,
-              lastActive: lastActivity && member.member.isOnline ? new Date(lastActivity.dateActivityStarted).getTime() : new Date(member.profile.profile.data.dateLastPlayed).getTime(),
-              lastActivity: lastActivity && member.member.isOnline ? lastActivity.currentActivityHash : 0,
-              element: (
-                <li key={member.member.destinyUserInfo.membershipId} className={cx({ linked: linked, isOnline: member.member.isOnline, blueberry: blueberry })}>
-                  <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${lastCharacter.emblemPath}`} />
-                  <div className='displayName'>{member.member.destinyUserInfo.displayName}</div>
-                </li>
-              )
-            });
-          } else {
-            // console.log(lastActivity);
-
-            let activityDisplay = null;
-            if (lastActivity && member.member.isOnline) {
-              let activity = manifest.DestinyActivityDefinition[lastActivity.currentActivityHash];
-              let mode = activity ? (activity.placeHash === 2961497387 ? false : manifest.DestinyActivityModeDefinition[lastActivity.currentActivityModeHash]) : false;
-
-              // console.log(lastActivity);
-
-              activityDisplay = mode ? (
-                <>
-                  {mode.displayProperties.name}: {activity.displayProperties.name}
-                </>
-              ) : activity ? (
-                activity.placeHash === 2961497387 ? (
-                  'Orbit'
+                {!isPrivate ? (
+                  <>
+                    <li className='col lastCharacter'>
+                      <div className='icon'>
+                        <i
+                          className={`destiny-class_${utils
+                            .classTypeToString(lastCharacter.classType)
+                            .toString()
+                            .toLowerCase()}`}
+                        />
+                      </div>
+                      <div className='icon'>
+                        <div>{lastCharacter.baseCharacterLevel}</div>
+                      </div>
+                      <div className='icon'>
+                        <div className={cx({ 'max-ish': lastCharacter.light >= 740, max: lastCharacter.light === 750 })}>
+                          <span>{lastCharacter.light}</span>
+                        </div>
+                      </div>
+                    </li>
+                    <li className={cx('col', 'lastActivity', { display: m.isOnline && display })}>
+                      <div>
+                        {m.isOnline && display ? (
+                          <>
+                            {display} <span>{moment(lastPlayed).locale('en-sml').fromNow(true)}</span>
+                          </>
+                        ) : (
+                          moment(lastPlayed).locale('en-sml').fromNow()
+                        )}
+                      </div>
+                    </li>
+                    <li className='col triumphScore'>{triumphScore.toLocaleString('en-us')}</li>
+                    <li className='col progression glory'>{gloryPoints.toLocaleString('en-us')}</li>
+                    <li className='col progression valor'>
+                      {valorPoints.toLocaleString('en-us')} {valorResets ? <div className='resets'>({valorResets})</div> : null}
+                    </li>
+                    <li className='col progression infamy'>
+                      {infamyPoints.toLocaleString('en-us')} {infamyResets ? <div className='resets'>({infamyResets})</div> : null}
+                    </li>
+                    <li className='col weeklyXp'><span>{weeklyXp.toLocaleString('en-us')}</span> / {(characterIds.length * 5000).toLocaleString('en-us')}</li>
+                  </>
                 ) : (
-                  activity.displayProperties.name
-                )
-              ) : null;
-            }
-
-            let character = (
-              <>
-                <span className='light'>{lastCharacter.light}</span>
-                <span className={`destiny-class_${classTypeToString(lastCharacter.classType).toLowerCase()}`} />
-              </>
-            );
-
-            members.push({
-              isOnline: member.member.isOnline,
-              lastActive: lastActivity && member.member.isOnline ? new Date(lastActivity.dateActivityStarted).getTime() : new Date(member.profile.profile.data.dateLastPlayed).getTime(),
-              lastActivity: lastActivity && member.member.isOnline ? lastActivity.currentActivityHash : 0,
-              element: (
-                <li key={member.member.destinyUserInfo.membershipId} className={cx({ linked: linked, isOnline: member.member.isOnline, blueberry: blueberry, thisIsYou: member.member.destinyUserInfo.membershipId == this.props.membershipId })}>
-                  <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${lastCharacter.emblemPath}`} />
-                  <div className='displayName'>{member.member.destinyUserInfo.displayName}</div>
-                  <div className='triumphScore'>{member.profile.profileRecords.data.score}</div>
-                  <div className='clanXp'>
-                    <span>{Object.values(member.profile.characterProgressions.data).reduce((sum, member) => { return sum + member.progressions[540048094].weeklyProgress }, 0)}</span> / {Object.values(member.profile.characterProgressions.data).reduce((sum, member) => { return sum + 5000 }, 0)}
-                  </div>
-                  <div className='character'>{character}</div>
-                  <div className='activity'>
-                    {activityDisplay ? <div className='name'>{activityDisplay}</div> : null}
-                    <Moment fromNow>{lastActivity && member.member.isOnline ? lastActivity.dateActivityStarted : member.profile.profile.data.dateLastPlayed}</Moment>
-                  </div>
+                  <>
+                    <li className='col lastCharacter'>–</li>
+                    <li className='col lastActivity'>–</li>
+                    <li className='col triumphScore'>–</li>
+                    <li className='col glory'>–</li>
+                    <li className='col valor'>–</li>
+                    <li className='col infamy'>–</li>
+                    <li className='col weeklyXp'>–</li>
+                  </>
+                )}
+              </ul>
+            </li>
+          ),
+          mini: (
+            <li key={m.destinyUserInfo.membershipType + m.destinyUserInfo.membershipId} className='row'>
+              <ul>
+                <li className='col member'>
+                  <MemberLink type={m.destinyUserInfo.membershipType} id={m.destinyUserInfo.membershipId} groupId={m.destinyUserInfo.groupId} displayName={m.destinyUserInfo.displayName} hideEmblemIcon={!m.isOnline} />
                 </li>
-              )
-            });
-          }
-        } else {
-          if (mini) {
-            members.push({
-              isOnline: member.member.isOnline,
-              lastActive: new Date(member.profile.profile.data.dateLastPlayed).getTime(),
-              lastActivity: 0,
-              element: (
-                <li key={member.member.destinyUserInfo.membershipId} className={cx({ linked: linked, isOnline: member.member.isOnline, blueberry: blueberry }, 'no-character')}>
-                  <div className='icon black' />
-                  <div className='displayName'>{member.member.destinyUserInfo.displayName}</div>
-                </li>
-              )
-            });
-          } else {
-            members.push({
-              isOnline: member.member.isOnline,
-              lastActive: new Date(member.profile.profile.data.dateLastPlayed).getTime(),
-              lastActivity: 0,
-              element: (
-                <li key={member.member.destinyUserInfo.membershipId} className={cx({ linked: linked, isOnline: member.member.isOnline, blueberry: blueberry }, 'no-character')}>
-                  <div className='icon black' />
-                  <div className='displayName'>{member.member.destinyUserInfo.displayName}</div>
-                </li>
-              )
-            });
-          }
+              </ul>
+            </li>
+          )
         }
       });
+    });
 
-      members = orderBy(members, [member => member.isOnline, member => member.lastActivity, member => member.lastActive], ['desc', 'desc', 'desc']);
+    let order = this.state.order;
 
-      if (this.props.mini) {
-        members.push({
-          isOnline: false,
-          lastActive: 0,
-          lastActivity: 0,
-          element: (
-            <li key='i_am_unqiue' className='linked view-all'>
-              <Link to='/clan/roster'>{t('View full roster')}</Link>
-            </li>
-          )
-        });
-      } else {
-        members.unshift({
-          isOnline: false,
-          lastActive: 0,
-          lastActivity: 0,
-          element: (
-            <li key='i_am_unqiue' className='grid-header'>
-              <div className='icon' />
-              <div className='displayName' />
-              <div className='triumphScore'>{t('Triumph score')}</div>
-              <div className='clanXp'>{t('Clan XP weekly')}</div>
-              <div className='character'>{t('Character')}</div>
-              <div className='activity'>{t('Activity')}</div>
-            </li>
-          )
-        });
-      }
-
-      return <ul className={cx('list', 'roster', { mini: mini })}>{members.map(member => member.element)}</ul>;
+    if (order.sort === 'lastCharacter') {
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.lastCharacter.baseCharacterLevel, m => m.sorts.lastCharacter.light, m => m.sorts.lastPlayed], ['asc', order.dir, order.dir, 'desc']);
+    } else if (order.sort === 'triumphScore') {
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.triumphScore, m => m.sorts.lastPlayed], ['asc', order.dir, 'desc']);
+    } else if (order.sort === 'valor') {
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.valorPoints, m => m.sorts.lastPlayed], ['asc', order.dir, 'desc']);
+    } else if (order.sort === 'glory') {
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.gloryPoints, m => m.sorts.lastPlayed], ['asc', order.dir, 'desc']);
+    } else if (order.sort === 'infamy') {
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.infamyPoints, m => m.sorts.lastPlayed], ['asc', order.dir, 'desc']);
+    } else if (order.sort === 'weeklyXp') {
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.weeklyXp, m => m.sorts.lastPlayed], ['asc', order.dir, 'desc']);
     } else {
-      return <Spinner />;
+      members = orderBy(members, [m => m.sorts.private, m => m.sorts.isOnline, m => m.sorts.lastActivity, m => m.sorts.lastPlayed, m => m.sorts.lastCharacter.light], ['asc', 'desc', 'desc', 'desc', 'desc']);
     }
+
+    if (!mini) {
+      members.unshift({
+        sorts: {},
+        el: {
+          full: (
+            <li key='header-row' className='row header'>
+              <ul>
+                <li className='col member' />
+                <li
+                  className={cx('col', 'lastCharacter', { sort: this.state.order.sort === 'lastCharacter', asc: this.state.order.dir === 'asc' })}
+                  onClick={() => {
+                    this.changeSortTo('lastCharacter');
+                  }}
+                >
+                  <div className='full'>{t('Last character')}</div>
+                  <div className='abbr'>{t('Char')}</div>
+                </li>
+                <li
+                  className={cx('col', 'lastActivity', { sort: !this.state.order.sort })}
+                  onClick={() => {
+                    this.changeSortTo(false);
+                  }}
+                >
+                  <div className='full'>{t('Last activity')}</div>
+                  <div className='abbr'>{t('Activity')}</div>
+                </li>
+                <li
+                  className={cx('col', 'triumphScore', { sort: this.state.order.sort === 'triumphScore', asc: this.state.order.dir === 'asc' })}
+                  onClick={() => {
+                    this.changeSortTo('triumphScore');
+                  }}
+                >
+                  <div className='full'>{t('Triumph score')}</div>
+                  <div className='abbr'>{t('T. Scr')}</div>
+                </li>
+                <li
+                  className={cx('col', 'glory', { sort: this.state.order.sort === 'glory', asc: this.state.order.dir === 'asc' })}
+                  onClick={() => {
+                    this.changeSortTo('glory');
+                  }}
+                >
+                  <div className='full'>{t('Glory')}</div>
+                  <div className='abbr'>{t('Gly')}</div>
+                </li>
+                <li
+                  className={cx('col', 'valor', { sort: this.state.order.sort === 'valor', asc: this.state.order.dir === 'asc' })}
+                  onClick={() => {
+                    this.changeSortTo('valor');
+                  }}
+                >
+                  <div className='full'>{t('Valor (Resets)')}</div>
+                  <div className='abbr'>{t('Vlr (R)')}</div>
+                </li>
+                <li
+                  className={cx('col', 'infamy', { sort: this.state.order.sort === 'infamy', asc: this.state.order.dir === 'asc' })}
+                  onClick={() => {
+                    this.changeSortTo('infamy');
+                  }}
+                >
+                  <div className='full'>{t('Infamy (Resets)')}</div>
+                  <div className='abbr'>{t('Inf (R)')}</div>
+                </li>
+                <li
+                  className={cx('col', 'weeklyXp', { sort: this.state.order.sort === 'weeklyXp', asc: this.state.order.dir === 'asc' })}
+                  onClick={() => {
+                    this.changeSortTo('weeklyXp');
+                  }}
+                >
+                  <div className='full'>{t('Weekly Clan XP')}</div>
+                  <div className='abbr'>{t('Clan XP')}</div>
+                </li>
+              </ul>
+            </li>
+          )
+        }
+      });
+    }
+
+    return (
+      <>
+        <ul className={cx('list', 'roster', { mini: mini })}>{mini ? this.props.limit ? members.slice(0, this.props.limit).map(m => m.el.mini) : members.map(m => m.el.mini) : members.map(m => m.el.full)}</ul>
+        {mini ? (
+          <ProfileLink className='button' to='/clan/roster'>
+            <div className='text'>{t('See full roster')}</div>
+          </ProfileLink>
+        ) : null}
+      </>
+    );
   }
 }
 
-export default withNamespaces()(Roster);
+function mapStateToProps(state, ownProps) {
+  return {
+    member: state.member,
+    groupMembers: state.groupMembers
+  };
+}
+
+export default compose(
+  connect(mapStateToProps),
+  withTranslation()
+)(Roster);

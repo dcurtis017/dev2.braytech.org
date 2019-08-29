@@ -3,18 +3,28 @@
   "name": "Braytech",
   "icons": [
     {
-      "src": "/static/images/braytech-192.png",
+      "src": "/static/images/icon-32.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "32x32"
     },
     {
-      "src": "/static/images/braytech-512.png",
+      "src": "/static/images/icon-64.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "64x64"
+    },
+    {
+      "src": "/static/images/icon-96.png",
+      "type": "image/png",
+      "sizes": "96x96"
+    },
+    {
+      "src": "/static/images/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
     }
   ],
-  "start_url": "/?utm_source=pwa",
+  "start_url": "/now?utm_source=pwa",
   "display": "standalone",
-  "theme_color": "#af1712",
-  "background_color": "#af1712"
+  "theme_color": "#000000",
+  "background_color": "#000000"
 }

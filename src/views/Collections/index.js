@@ -1,12 +1,18 @@
 import React from 'react';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { withTranslation } from 'react-i18next';
+import cx from 'classnames';
 
-import { Link } from 'react-router-dom';
-import Root from './Root';
-import BadgeNode from './BadgeNode';
-import PresentationNode from './PresentationNode';
+import { ProfileLink } from '../../components/ProfileLink';
+import Button from '../../components/UI/Button';
 
 import './styles.css';
-import { withNamespaces } from 'react-i18next';
+
+import Root from './Root/';
+import Node from './Node/';
+import BadgeNode from './BadgeNode/';
+import AllRankedByRarity from './AllRankedByRarity/';
 
 class Collections extends React.Component {
   constructor(props) {
@@ -15,8 +21,25 @@ class Collections extends React.Component {
     this.state = {};
   }
 
+  toggleCompleted = () => {
+    let currentState = this.props.collectibles;
+    let newState = {
+      hideCompletedCollectibles: !currentState.hideCompletedCollectibles
+    };
+
+    this.props.setCollectibleDisplayState(newState);
+  };
+
+  componentDidMount() {
+    if (!this.props.match.params.quaternary) {
+      window.scrollTo(0, 0);
+    }
+
+    this.props.rebindTooltips();
+  }
+
   componentDidUpdate(prevProps) {
-    if (!this.props.match.params.quaternary && prevProps.location.pathname !== this.props.location.pathname) {
+    if (!this.props.match.params.quaternary && prevProps.location.pathname !== this.props.location.pathname && !(prevProps.match.params.primary === this.props.match.params.primary && this.props.match.params.primary === 'badge')) {
       window.scrollTo(0, 0);
     }
   }
@@ -25,28 +48,71 @@ class Collections extends React.Component {
     const { t } = this.props;
     let primaryHash = this.props.match.params.primary ? this.props.match.params.primary : false;
 
+    let backLinkPath = this.props.location.state && this.props.location.state.from ? this.props.location.state.from : '/collections';
+
+    const toggleCompletedLink = (
+      <Button action={this.toggleCompleted}>
+        {this.props.collectibles.hideCompletedCollectibles ? (
+          <>
+            <i className='segoe-uniF16E' />
+            {t('Show all')}
+          </>
+        ) : (
+          <>
+            <i className='segoe-uniF16B' />
+            {t('Hide acquired')}
+          </>
+        )}
+      </Button>
+    );
+
     if (!primaryHash) {
       return (
-        <div className='view presentation-node' id='collections'>
-          <Root {...this.props} />
+        <div className='view presentation-node root' id='collections'>
+          <Root />
         </div>
       );
     } else if (primaryHash === 'badge') {
       return (
         <>
           <div className='view presentation-node' id='collections'>
-            <BadgeNode {...this.props} />
+            <BadgeNode />
           </div>
           <div className='sticky-nav'>
-            <div />
-            <ul>
-              <li>
-                <Link to='/collections'>
-                  <i className='uniE742' />
-                  Collections
-                </Link>
-              </li>
-            </ul>
+            <div className='wrapper'>
+              <div />
+              <ul>
+                <li>{toggleCompletedLink}</li>
+                <li>
+                  <ProfileLink className='button' to={backLinkPath}>
+                    <i className='destiny-B_Button' />
+                    {t('Back')}
+                  </ProfileLink>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </>
+      );
+    } else if (primaryHash === 'all-ranked-by-rarity') {
+      return (
+        <>
+          <div className='view' id='collections'>
+            <AllRankedByRarity />
+          </div>
+          <div className='sticky-nav'>
+            <div className='wrapper'>
+              <div />
+              <ul>
+                <li>{toggleCompletedLink}</li>
+                <li>
+                  <ProfileLink className='button' to={backLinkPath}>
+                    <i className='destiny-B_Button' />
+                    {t('Back')}
+                  </ProfileLink>
+                </li>
+              </ul>
+            </div>
           </div>
         </>
       );
@@ -54,18 +120,21 @@ class Collections extends React.Component {
       return (
         <>
           <div className='view presentation-node' id='collections'>
-            <PresentationNode {...this.props} primaryHash={primaryHash} />
+            <Node primaryHash={primaryHash} />
           </div>
           <div className='sticky-nav'>
-            <div />
-            <ul>
-              <li>
-                <Link to='/collections'>
-                  <i className='uniE742' />
-                  {t('Collections')}
-                </Link>
-              </li>
-            </ul>
+            <div className='wrapper'>
+              <div />
+              <ul>
+                <li>{toggleCompletedLink}</li>
+                <li>
+                  <ProfileLink className='button' to={backLinkPath}>
+                    <i className='destiny-B_Button' />
+                    {t('Back')}
+                  </ProfileLink>
+                </li>
+              </ul>
+            </div>
           </div>
         </>
       );
@@ -73,4 +142,28 @@ class Collections extends React.Component {
   }
 }
 
-export default withNamespaces()(Collections);
+function mapStateToProps(state, ownProps) {
+  return {
+    member: state.member,
+    collectibles: state.collectibles
+  };
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    setCollectibleDisplayState: value => {
+      dispatch({ type: 'SET_COLLECTIBLES', payload: value });
+    },
+    rebindTooltips: value => {
+      dispatch({ type: 'REBIND_TOOLTIPS', payload: new Date().getTime() });
+    }
+  };
+}
+
+export default compose(
+  connect(
+    mapStateToProps,
+    mapDispatchToProps
+  ),
+  withTranslation()
+)(Collections);

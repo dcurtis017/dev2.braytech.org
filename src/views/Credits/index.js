@@ -1,57 +1,115 @@
 import React from 'react';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { withTranslation } from 'react-i18next';
+import cx from 'classnames';
+
+import MemberLink from '../../components/MemberLink';
+import userFlair from '../../data/userFlair';
 
 import './styles.css';
-import {withNamespaces} from "react-i18next";
 
 class Credits extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {};
+
+    this.supporters = this.shuffle(userFlair.slice().filter(m => m.trophies.find(t => t.classnames.includes('patron'))));
+  }
+
+  thanks = [
+    {
+      name: 'Alex Loret de Mola',
+      description: 'Senior Software Engineer, Bungie. His efforts literally enable this web site, and similar, to function. Herein known as the Architect.'
+    },
+    {
+      name: 'Michael Pearson',
+      description: 'Responsible for refactoring core components that have brought Braytech properly into 2019. He lives in a tree house.'
+    },
+    {
+      name: 'Josh Hunt',
+      description: 'Has served as an inpiration through his own API work on projects such as Destiny Sets and Friendgame, and has encouraged me to be better repeatedly.'
+    },
+    {
+      name: 'Richard Deveraux',
+      description: "From what I understand, lowlines is a pioneer in all things Destiny and Destiny api stuff. His meticulous work helps power Braytech's checklists."
+    },
+    {
+      name: 'Rob Jones',
+      description: 'delphiactual prototyped the very popular This Week view. He seems pretty cool, too.'
+    },
+    {
+      name: 'João Paulo Marquesini',
+      description: 'The very handsome developer of the Little Light app laid the foundations for a multilingual Braytech.'
+    }
+  ];
+
+  shuffle(array) {
+    var currentIndex = array.length,
+      temporaryValue,
+      randomIndex;
+
+    // While there remain elements to shuffle...
+    while (0 !== currentIndex) {
+      // Pick a remaining element...
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex -= 1;
+
+      // And swap it with the current element.
+      temporaryValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = temporaryValue;
+    }
+
+    return array;
   }
 
   componentDidMount() {
-    this.props.setPageDefault('light');
     window.scrollTo(0, 0);
   }
 
-  componentWillUnmount() {
-    this.props.setPageDefault(false);
-  }
-
   render() {
-
     const { t } = this.props;
 
     return (
-      <div className='view' id='credits'>
-        <div className='content'>
-          <div className='name'>{t('Credits')}</div>
-          <div className='description'>
-            <p>Thanks to Bungie in general for a great game and a great API. Thanks to vthornheart, the boys in the DIM Slack, and for everyone who's excitement motivates me.</p>
-            <p>The repo is at <a href='https://github.com/justrealmilk/dev2.braytech.org' target='_blank' rel='noopener noreferrer'>justrealmilk/dev2.braytech.org</a>. <a href='https://github.com/justrealmilk/dev2.braytech.org/issues' target='_blank' rel='noopener noreferrer'>Issues?</a></p>
-            <ul>
-              <li>
-                <strong>{t('Translations')}</strong>
-                <ul>
-                  <li><a href='https://github.com/marquesinijatinha' target='_blank' rel='noopener noreferrer'>João Paulo (Português Brasileiro)</a></li>
-                  <li><a href='https://github.com/koenigderluegner' target='_blank' rel='noopener noreferrer'>Alex Niersmann (Deutsch)</a></li>
-                </ul>
-              </li>
-              <li>
-                <strong>{t('Index')}</strong>
-                <ul>
-                  <li><a href='https://www.artstation.com/artwork/m9q01' target='_blank' rel='noopener noreferrer'>Image</a> by Andrew Averkin / Blur</li>
-                </ul>
-              </li>
-              <li>
-                <strong>{t('This Week')}</strong>
-                <ul>
-                  <li><a href='https://github.com/delphiactual' target='_blank' rel='noopener noreferrer'>Rob Jones</a></li>
-                  <li><a href='https://github.com/koenigderluegner' target='_blank' rel='noopener noreferrer'>Alex Niersmann</a></li>
-                </ul>
-              </li>
-            </ul>
+      <div className={cx('view', this.props.theme.selected)} id='credits'>
+        <div className='module intro'>
+          <div className='page-header'>
+            <div className='name'>{t('Credits')}</div>
+          </div>
+          <div className='text'>
+            <p>The Architects and Guardians that make Braytech possible.</p>
+            <p>Braytech's history spans the life of Destiny 2's release. There's been many changes in its trajectory, and it continues to soar. I, justrealmilk, have been aided in my journey by a handful of generous developers, designers, and friendly blueberries, to build this passion project out of the ground from rudimentary HTML and jQuery.</p>
+            <p>Love for this game is as undying as the Light itself.</p>
+            <p>© Bungie, Inc. All rights reserved. Destiny, the Destiny Logo, Bungie and the Bungie logo are among the trademarks of Bungie, Inc.</p>
+          </div>
+        </div>
+        <div className='module thanks'>
+          <div className='sub-header sub'>
+            <div>{t('Special thanks')}</div>
+          </div>
+          <div className='persons'>
+            {this.thanks.map((person, index) => {
+              return (
+                <div key={index} className='person'>
+                  <div className='text'>
+                    <strong>{person.name}</strong>
+                    <p>{person.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className='sub-header sub'>
+            <div>{t('Patreon supporters')}</div>
+          </div>
+          <div className='tags'>
+            {this.supporters.map((m, k) => {
+              let t = m.user.slice(0, 1);
+              let i = m.user.slice(1);
+              return <MemberLink key={k} type={t} id={i} hideFlair />;
+            })}
           </div>
         </div>
       </div>
@@ -59,4 +117,13 @@ class Credits extends React.Component {
   }
 }
 
-export default withNamespaces()(Credits);
+function mapStateToProps(state, ownProps) {
+  return {
+    theme: state.theme
+  };
+}
+
+export default compose(
+  connect(mapStateToProps),
+  withTranslation()
+)(Credits);

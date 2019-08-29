@@ -1,39 +1,54 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import App from './App';
+import { Provider } from 'react-redux';
+
 import * as serviceWorker from './serviceWorker';
+import runOnceTasks from './utils/runOnceTasks';
+import App from './App';
+
+import store from './utils/reduxStore';
 
 class AppEntry extends React.Component {
   constructor(props) {
     super();
+    
     this.state = {
       updateAvailable: false
     };
+
+    runOnceTasks();
   }
 
   config = {
-    onUpdate: (registration) => {
+    onUpdate: registration => {
+      console.warn('Service worker update available');
+      console.log(registration);
+
       this.setState({
         updateAvailable: true
-      })
+      });
+
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
     },
-    onSuccess: (registration) => {
-      
+    onSuccess: registration => {
+      console.warn('Service worker registered');
+      console.log(registration);
     }
-  }
+  };
 
   componentDidMount() {
-    // If you want your app to work offline and load faster, you can change
-    // unregister() to register() below. Note this comes with some pitfalls.
-    // Learn more about service workers: http://bit.ly/CRA-PWA
     serviceWorker.register(this.config);
   }
 
   render() {
-    return <App updateAvailable={this.state.updateAvailable} />
+    return (
+      <Provider store={store}>
+        <App {...this.state} />
+      </Provider>
+    );
   }
 }
 
 ReactDOM.render(<AppEntry />, document.getElementById('root'));
-
-

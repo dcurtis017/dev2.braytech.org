@@ -1,12 +1,20 @@
 import React from 'react';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { withRouter } from 'react-router';
 import { Link } from 'react-router-dom';
-import orderBy from 'lodash/orderBy';
+import { withTranslation } from 'react-i18next';
+import { orderBy } from 'lodash';
 import cx from 'classnames';
 
-import ObservedImage from '../ObservedImage';
-import ProgressBar from '../ProgressBar';
-
+import manifest from '../../utils/manifest';
 import { enumerateRecordState } from '../../utils/destinyEnums';
+import * as paths from '../../utils/paths';
+import dudRecords from '../../data/dudRecords';
+import ObservedImage from '../ObservedImage';
+import { ProfileLink } from '../../components/ProfileLink';
+import Collectibles from '../../components/Collectibles';
+import ProgressBar from '../UI/ProgressBar';
 
 import './styles.css';
 
@@ -25,315 +33,302 @@ class Records extends React.Component {
     }
   }
 
-  render() {
-    const manifest = this.props.manifest;
+  trackThisClick = e => {
+    let tracked = this.props.triumphs.tracked;
+    let hashToTrack = parseInt(e.currentTarget.dataset.hash, 10);
+    let target = tracked.indexOf(hashToTrack);
 
-    const characterRecords = this.props.response.profile.characterRecords.data;
-    const profileRecords = this.props.response.profile.profileRecords.data.records;
-    const characterId = this.props.characterId;
-
-    const highlight = this.props.highlight;
-
-    let records = [];
-
-    if (this.props.node) {
-      let tertiaryDefinition = manifest.DestinyPresentationNodeDefinition[this.props.node];
-
-      tertiaryDefinition.children.records.forEach(child => {
-        let recordDefinition = manifest.DestinyRecordDefinition[child.recordHash];
-
-        let objectives = [];
-        if (recordDefinition.objectiveHashes) {
-          recordDefinition.objectiveHashes.forEach(hash => {
-            let objectiveDefinition = manifest.DestinyObjectiveDefinition[hash];
-
-            if (profileRecords[recordDefinition.hash]) {
-              let playerProgress = null;
-              profileRecords[recordDefinition.hash].objectives.forEach(objective => {
-                if (objective.objectiveHash === hash) {
-                  playerProgress = objective;
-                }
-              });
-
-              objectives.push(
-                <ProgressBar key={objectiveDefinition.hash} objectiveDefinition={objectiveDefinition} playerProgress={playerProgress} />
-              );
-            } else if (characterRecords[characterId].records[recordDefinition.hash]) {
-              let playerProgress = null;
-              characterRecords[characterId].records[recordDefinition.hash].objectives.forEach(objective => {
-                if (objective.objectiveHash === hash) {
-                  playerProgress = objective;
-                }
-              });
-
-              objectives.push(
-                <ProgressBar key={objectiveDefinition.hash} objectiveDefinition={objectiveDefinition} playerProgress={playerProgress} />
-              );
-            } else {
-              objectives.push(null);
-            }
-          });
-        }
-
-        let state;
-        if (profileRecords[recordDefinition.hash]) {
-          state = profileRecords[recordDefinition.hash] ? profileRecords[recordDefinition.hash].state : 0;
-        } else if (characterRecords[characterId].records[recordDefinition.hash]) {
-          state = characterRecords[characterId].records[recordDefinition.hash] ? characterRecords[characterId].records[recordDefinition.hash].state : 0;
-        } else {
-          state = 0;
-        }
-
-        if (enumerateRecordState(state).invisible) {
-          return;
-        }
-
-        if (enumerateRecordState(state).recordRedeemed && this.props.hideCompleted) {
-          return;
-        }
-
-        // eslint-disable-next-line eqeqeq
-        let ref = highlight == recordDefinition.hash ? this.scrollToRecordRef : null;
-
-        if (recordDefinition.redacted) {
-          records.push({
-            completed: enumerateRecordState(state).recordRedeemed,
-            hash: recordDefinition.hash,
-            element: (
-              <li
-                key={recordDefinition.hash}
-                ref={ref}
-                className={cx('redacted', {
-                  // eslint-disable-next-line eqeqeq
-                  highlight: highlight && highlight == recordDefinition.hash
-                })}
-              >
-                <div className='properties'>
-                  <div className='icon'>
-                    <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${recordDefinition.displayProperties.icon}`} />
-                  </div>
-                  <div className='text'>
-                    <div className='name'>Classified record</div>
-                    <div className='description'>This record is classified and may be revealed at a later time.</div>
-                  </div>
-                </div>
-              </li>
-            )
-          });
-        } else {
-          let description = recordDefinition.displayProperties.description !== '' ? recordDefinition.displayProperties.description : false;
-          description = !description && recordDefinition.loreHash ? manifest.DestinyLoreDefinition[recordDefinition.loreHash].displayProperties.description.slice(0, 48) + '...' : description;
-
-          records.push({
-            completed: enumerateRecordState(state).recordRedeemed,
-            hash: recordDefinition.hash,
-            element: (
-              <li
-                key={recordDefinition.hash}
-                ref={ref}
-                className={cx({
-                  // eslint-disable-next-line eqeqeq
-                  highlight: highlight && highlight == recordDefinition.hash,
-                  completed: enumerateRecordState(state).recordRedeemed,
-                  'no-description': !description
-                })}
-              >
-                <div className='properties'>
-                  <div className='icon'>
-                    <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${recordDefinition.displayProperties.icon}`} />
-                  </div>
-                  <div className='text'>
-                    <div className='name'>{recordDefinition.displayProperties.name}</div>
-                    {recordDefinition.completionInfo.ScoreValue && recordDefinition.completionInfo.ScoreValue !== 0 ? <div className='score'>{recordDefinition.completionInfo.ScoreValue}</div> : null}
-                    <div className='description'>{description}</div>
-                  </div>
-                </div>
-                <div className='objectives'>{objectives}</div>
-              </li>
-            )
-          });
-        }
-      });
+    if (target > -1) {
+      tracked = tracked.filter((hash, index) => index !== target);
     } else {
-      let recordsRequested = this.props.hashes;
-      recordsRequested.forEach(hash => {
-        const recordDefinition = manifest.DestinyRecordDefinition[hash];
+      tracked.push(hashToTrack);
+    }
 
-        let objectives = [];
-        let link = false;
+    this.props.setTrackedTriumphs(tracked);
+  };
 
-        // selfLink
+  selfLink = hash => {
+    let link = ['/triumphs'];
+    let root = manifest.DestinyPresentationNodeDefinition[manifest.settings.destiny2CoreSettings.recordsRootNode];
+    let seals = manifest.DestinyPresentationNodeDefinition[manifest.settings.destiny2CoreSettings.medalsRootNode];
 
-        try {
-          let reverse1;
-          let reverse2;
-          let reverse3;
+    root.children.presentationNodes.forEach(nP => {
+      let nodePrimary = manifest.DestinyPresentationNodeDefinition[nP.presentationNodeHash];              
 
-          manifest.DestinyRecordDefinition[hash].presentationInfo.parentPresentationNodeHashes.forEach(element => {
-            if (manifest.DestinyPresentationNodeDefinition[1652422747].children.presentationNodes.filter(el => el.presentationNodeHash === element).length > 0) {
-              return; // if hash is a child of seals, skip it
+      nodePrimary.children.presentationNodes.forEach(nS => {
+        let nodeSecondary = manifest.DestinyPresentationNodeDefinition[nS.presentationNodeHash];
+
+        nodeSecondary.children.presentationNodes.forEach(nT => {
+          let nodeTertiary = manifest.DestinyPresentationNodeDefinition[nT.presentationNodeHash];
+
+          if (nodeTertiary.children.records.length) {
+            let found = nodeTertiary.children.records.find(c => c.recordHash === parseInt(hash, 10));
+            if (found) {
+              link.push(nodePrimary.hash, nodeSecondary.hash, nodeTertiary.hash, found.recordHash)
             }
-            if (reverse1) {
-              return;
-            }
-            reverse1 = manifest.DestinyPresentationNodeDefinition[element];
-          });
+          } else {
+            nodeTertiary.children.presentationNodes.forEach(nQ => {
+              let nodeQuaternary = manifest.DestinyPresentationNodeDefinition[nQ.presentationNodeHash];
 
-          let iteratees = reverse1.presentationInfo ? reverse1.presentationInfo.parentPresentationNodeHashes : reverse1.parentNodeHashes;
-          iteratees.forEach(element => {
-            if (reverse2) {
-              return;
-            }
-            reverse2 = manifest.DestinyPresentationNodeDefinition[element];
-          });
-
-          if (reverse2 && reverse2.parentNodeHashes) {
-            reverse3 = manifest.DestinyPresentationNodeDefinition[reverse2.parentNodeHashes[0]];
+              if (nodeQuaternary.children.records.length) {
+                let found = nodeQuaternary.children.records.find(c => c.recordHash === hash);
+                if (found) {
+                  link.push(nodePrimary.hash, nodeSecondary.hash, nodeTertiary.hash, nodeQuaternary.hash, found.recordHash)
+                }
+              }      
+            });
           }
 
-          link = `/triumphs/${reverse3.hash}/${reverse2.hash}/${reverse1.hash}/${hash}`;
-        } catch (e) {
-          console.log(e);
+        });
+      });
+    });
+
+    if (link.length === 1) {
+      seals.children.presentationNodes.forEach(nP => {
+        let nodePrimary = manifest.DestinyPresentationNodeDefinition[nP.presentationNodeHash];              
+
+        if (nodePrimary.children.records.length) {
+          let found = nodePrimary.children.records.find(c => c.recordHash === parseInt(hash, 10));
+          if (found) {
+            link.push('seal', nodePrimary.hash, found.recordHash)
+          }
         }
 
-        if (recordDefinition.objectiveHashes) {
-          recordDefinition.objectiveHashes.forEach(hash => {
-            let objectiveDefinition = manifest.DestinyObjectiveDefinition[hash];
-
-            if (profileRecords[recordDefinition.hash]) {
-              let playerProgress = null;
-              profileRecords[recordDefinition.hash].objectives.forEach(objective => {
-                if (objective.objectiveHash === hash) {
-                  playerProgress = objective;
-                }
-              });
-
-              // override
-              if (hash === 1278866930 && playerProgress.complete) {
-                playerProgress.progress = 16;
-              }
-
-              objectives.push(
-                <ProgressBar key={objectiveDefinition.hash} objectiveDefinition={objectiveDefinition} playerProgress={playerProgress} />
-              );
-            } else if (characterRecords[characterId].records[recordDefinition.hash]) {
-              let playerProgress = null;
-              characterRecords[characterId].records[recordDefinition.hash].objectives.forEach(objective => {
-                if (objective.objectiveHash === hash) {
-                  playerProgress = objective;
-                }
-              });
-
-              objectives.push(
-                <ProgressBar key={objectiveDefinition.hash} objectiveDefinition={objectiveDefinition} playerProgress={playerProgress} />
-              );
-            } else {
-              objectives.push(null);
-            }
-          });
-        }
-
-        let state;
-        if (profileRecords[recordDefinition.hash]) {
-          state = profileRecords[recordDefinition.hash] ? profileRecords[recordDefinition.hash].state : 0;
-        } else if (characterRecords[characterId].records[recordDefinition.hash]) {
-          state = characterRecords[characterId].records[recordDefinition.hash] ? characterRecords[characterId].records[recordDefinition.hash].state : 0;
-        } else {
-          state = 0;
-        }
-
-        if (enumerateRecordState(state).invisible) {
-          return;
-        }
-
-        if (enumerateRecordState(state).recordRedeemed && this.props.hideCompleted) {
-          return;
-        }
-
-        // eslint-disable-next-line eqeqeq
-        let ref = highlight == recordDefinition.hash ? this.scrollToRecordRef : null;
-
-        if (recordDefinition.redacted) {
-          records.push({
-            completed: enumerateRecordState(state).recordRedeemed,
-            hash: recordDefinition.hash,
-            element: (
-              <li
-                key={recordDefinition.hash}
-                ref={ref}
-                className={cx('redacted', {
-                  // eslint-disable-next-line eqeqeq
-                  highlight: highlight && highlight == recordDefinition.hash
-                })}
-              >
-                <div className='properties'>
-                  <div className='icon'>
-                    <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${manifest.settings.destiny2CoreSettings.undiscoveredCollectibleImage}`} />
-                  </div>
-                  <div className='text'>
-                    <div className='name'>Classified record</div>
-                    <div className='description'>This record is classified and may be revealed at a later time.</div>
-                  </div>
-                </div>
-              </li>
-            )
-          });
-        } else {
-          let description = recordDefinition.displayProperties.description !== '' ? recordDefinition.displayProperties.description : false;
-          description = !description && recordDefinition.loreHash ? manifest.DestinyLoreDefinition[recordDefinition.loreHash].displayProperties.description.slice(0, 32) + '...' : description;
-
-          records.push({
-            completed: enumerateRecordState(state).recordRedeemed,
-            hash: recordDefinition.hash,
-            element: (
-              <li
-                key={recordDefinition.hash}
-                ref={ref}
-                className={cx({
-                  linked: link && this.props.selfLink,
-                  // eslint-disable-next-line eqeqeq
-                  highlight: highlight && highlight == recordDefinition.hash,
-                  completed: enumerateRecordState(state).recordRedeemed,
-                  'no-description': !description
-                })}
-              >
-                <div className='properties'>
-                  <div className='icon'>
-                    <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${recordDefinition.displayProperties.icon}`} />
-                  </div>
-                  <div className='text'>
-                    <div className='name'>{recordDefinition.displayProperties.name}</div>
-                    {recordDefinition.completionInfo.ScoreValue && recordDefinition.completionInfo.ScoreValue !== 0 ? <div className='score'>{recordDefinition.completionInfo.ScoreValue}</div> : null}
-                    <div className='description'>{description}</div>
-                  </div>
-                </div>
-                <div className='objectives'>{objectives}</div>
-                {link && this.props.selfLink ? <Link to={link} /> : null}
-              </li>
-            )
-          });
-        }
       });
     }
 
-    if (records.length === 0 && this.props.hideCompleted) {
-      records.push(
-        <li key='lol'>
-          <div className='properties'>
-            <div className='icon' />
-            <div className='text'>
-              <div className='name'>Nothing to show for your effort</div>
-              <div className='description'>You've completed all the records here! GG</div>
+    link = link.join('/');
+    return link;
+  }
+
+  render() {
+    const { t, hashes, member, triumphs, collectibles, ordered, limit, selfLinkFrom, readLink, forceDisplay = false } = this.props;
+    const highlight = parseInt(this.props.highlight, 10) || false;
+    const recordsRequested = collectibles.hideDudRecords ? hashes.filter(hash => dudRecords.indexOf(hash) === -1) : hashes;
+    const characterId = member && member.characterId;
+    const characterRecords = member && member.data && member.data.profile.characterRecords.data;
+    const profileRecords = member && member.data && member.data.profile.profileRecords.data.records;
+    const profileRecordsTracked = member && member.data && member.data.profile.profileRecords.data.trackedRecordHash ? [member.data.profile.profileRecords.data.trackedRecordHash] : [];
+    const tracked = triumphs.tracked;
+
+    let recordsOutput = [];
+    recordsRequested.forEach(hash => {
+      const definitionRecord = manifest.DestinyRecordDefinition[hash];
+      const recordScope = definitionRecord.scope || 0;
+      const recordData = recordScope === 1 ? characterRecords && characterRecords[characterId].records[definitionRecord.hash] : profileRecords && profileRecords[definitionRecord.hash];
+
+      let objectives = [];
+      let completionValueTotal = 0;
+      let progressValueTotal = 0;
+      
+      let link = this.selfLink(hash);
+
+      // readLink
+      if (definitionRecord.loreHash && !selfLinkFrom && readLink) {
+        link = `/read/record/${definitionRecord.hash}`;
+      }
+
+      if (definitionRecord.objectiveHashes) {
+        definitionRecord.objectiveHashes.forEach((hash, index) => {
+          let definitionObjective = manifest.DestinyObjectiveDefinition[hash];
+
+          let playerProgress = recordData && recordData.objectives.find(o => o.objectiveHash === hash);
+          playerProgress = playerProgress ? playerProgress : {
+            complete: false,
+            progress: 0,
+            objectiveHash: definitionObjective.hash
+          };
+
+          // override
+          if (hash === 1278866930 && playerProgress.complete) {
+            playerProgress.progress = 16;
+          }
+
+          objectives.push(<ProgressBar key={`${hash}${index}`} objective={definitionObjective} progress={playerProgress} />);
+
+          if (playerProgress) {
+            let v = parseInt(playerProgress.completionValue, 10);
+            let p = parseInt(playerProgress.progress, 10);
+
+            completionValueTotal = completionValueTotal + v;
+            progressValueTotal = progressValueTotal + (p > v ? v : p);
+          }
+        });
+      }
+
+      let progressDistance = progressValueTotal / completionValueTotal;
+      progressDistance = Number.isNaN(progressDistance) ? 0 : progressDistance;
+
+      let state = recordData && Number.isInteger(recordData.state) ? recordData.state : 4;
+
+      if (enumerateRecordState(state).invisible && (collectibles && collectibles.hideInvisibleRecords)) {
+        return;
+      }
+
+      if (enumerateRecordState(state).recordRedeemed && (collectibles && collectibles.hideCompletedRecords) && !forceDisplay) {
+        return;
+      }
+
+      let ref = highlight === definitionRecord.hash ? this.scrollToRecordRef : null;
+
+      if (definitionRecord.redacted) {
+        recordsOutput.push({
+          completed: enumerateRecordState(state).recordRedeemed,
+          progressDistance,
+          hash: definitionRecord.hash,
+          element: (
+            <li
+              key={definitionRecord.hash}
+              ref={ref}
+              className={cx('redacted', {
+                // eslint-disable-next-line eqeqeq
+                highlight: highlight && highlight == definitionRecord.hash
+              })}
+            >
+              <div className='properties'>
+                <div className='icon'>
+                  <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${manifest.settings.destiny2CoreSettings.undiscoveredCollectibleImage}`} />
+                </div>
+                <div className='text'>
+                  <div className='name'>Classified record</div>
+                  <div className='description'>This record is classified and may be revealed at a later time.</div>
+                </div>
+              </div>
+            </li>
+          )
+        });
+      } else {
+        let description = definitionRecord.displayProperties.description !== '' ? definitionRecord.displayProperties.description : false;
+        description = !description && definitionRecord.loreHash ? manifest.DestinyLoreDefinition[definitionRecord.loreHash].displayProperties.description.slice(0, 117).trim() + '...' : description;
+
+        let linkTo;
+        if (link && selfLinkFrom) {
+          linkTo = {
+            pathname: link,
+            state: {
+              from: selfLinkFrom
+            }
+          };
+        }
+        if (link && readLink) {
+          linkTo = {
+            pathname: link,
+            state: {
+              from: this.props.location.pathname
+            }
+          };
+        }
+
+        let rewards;
+        if (definitionRecord.rewardItems && definitionRecord.rewardItems.length) {
+          rewards = definitionRecord.rewardItems.map(r => {
+            let definitionItem = manifest.DestinyInventoryItemDefinition[r.itemHash];
+            let definitionCollectible = definitionItem.collectibleHash ? manifest.DestinyCollectibleDefinition[definitionItem.collectibleHash] : false;
+
+            if (definitionCollectible && !definitionCollectible.redacted) {
+              return definitionCollectible.hash;
+            } else {
+              return false;
+            }
+          }).filter(r => r);
+        }
+
+        recordsOutput.push({
+          completed: enumerateRecordState(state).recordRedeemed,
+          progressDistance,
+          hash: definitionRecord.hash,
+          element: (
+            <li
+              key={definitionRecord.hash}
+              ref={ref}
+              className={cx({
+                linked: link && linkTo,
+                highlight: highlight && highlight === definitionRecord.hash,
+                completed: enumerateRecordState(state).recordRedeemed,
+                unredeemed: !enumerateRecordState(state).recordRedeemed && !enumerateRecordState(state).objectiveNotCompleted,
+                tracked: tracked.concat(profileRecordsTracked).includes(definitionRecord.hash) && !enumerateRecordState(state).recordRedeemed && enumerateRecordState(state).objectiveNotCompleted,
+                'no-description': !description
+              })}
+            >
+              {!enumerateRecordState(state).recordRedeemed && enumerateRecordState(state).objectiveNotCompleted && !profileRecordsTracked.includes(definitionRecord.hash) ? (
+                <div className='track-this' onClick={this.trackThisClick} data-hash={definitionRecord.hash}>
+                  <div />
+                </div>
+              ) : null}
+              <div className='properties'>
+                <div className='icon'>
+                  <ObservedImage className={cx('image', 'icon')} src={`https://www.bungie.net${definitionRecord.displayProperties.icon}`} />
+                </div>
+                <div className='text'>
+                  <div className='name'>{definitionRecord.displayProperties.name}</div>
+                  <div className='meta'>
+                    <div className='commonality tooltip' data-hash='commonality' data-table='BraytechDefinition'>{manifest.statistics.triumphs && manifest.statistics.triumphs[definitionRecord.hash] ? manifest.statistics.triumphs[definitionRecord.hash] : `0.00`}%</div>
+                    {definitionRecord.completionInfo && definitionRecord.completionInfo.ScoreValue !== 0 ? <div className='score tooltip' data-hash='score' data-table='BraytechDefinition'>{definitionRecord.completionInfo.ScoreValue}</div> : null}
+                  </div>
+                  <div className='description'>{description}</div>
+                </div>
+              </div>
+              <div className='objectives'>{objectives}</div>
+              {rewards && rewards.length ? (
+                <ul className='list rewards collection-items'>
+                  <Collectibles forceDisplay selfLinkFrom={paths.removeMemberIds(this.props.location.pathname)} hashes={rewards} />
+                </ul>
+              ) : null}
+              {link && linkTo ? !selfLinkFrom && readLink ? <Link to={linkTo} /> : <ProfileLink to={linkTo} /> : null}
+            </li>
+          )
+        });
+      }
+    });
+
+    if (recordsRequested.length > 0 && recordsOutput.length === 0 && collectibles && collectibles.hideCompletedRecords && !forceDisplay) {
+      recordsOutput.push({
+        element: (
+          <li key='lol' className='all-completed'>
+            <div className='properties'>
+              <div className='text'>{t('All completed')}</div>
             </div>
-          </div>
-        </li>
-      );
+          </li>
+        )
+      });
     }
 
-    records = this.props.ordered ? orderBy(records, [item => item.completed], ['asc']) : records;
+    if (ordered === 'progress') {
+      recordsOutput = orderBy(recordsOutput, [item => item.progressDistance], ['desc']);
+    } else if (ordered) {
+      recordsOutput = orderBy(recordsOutput, [item => item.completed], ['asc']);
+    } else {
+    }
 
-    return records.map(obj => obj.element);
+    if (limit) {
+      recordsOutput = recordsOutput.slice(0, limit);
+    }
+
+    return recordsOutput.map(obj => obj.element);
   }
 }
 
-export default Records;
+function mapStateToProps(state, ownProps) {
+  return {
+    member: state.member,
+    triumphs: state.triumphs,
+    collectibles: state.collectibles
+  };
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    setTrackedTriumphs: value => {
+      dispatch({ type: 'SET_TRACKED_TRIUMPHS', payload: value });
+    }
+  };
+}
+
+export default compose(
+  withRouter,
+  connect(
+    mapStateToProps,
+    mapDispatchToProps
+  ),
+  withTranslation()
+)(Records);

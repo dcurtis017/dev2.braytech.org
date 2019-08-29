@@ -1,164 +1,195 @@
+/* eslint-disable jsx-a11y/anchor-has-content */
+/* eslint-disable jsx-a11y/anchor-is-valid */
 import React from 'react';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { withTranslation } from 'react-i18next';
+import PropTypes from 'prop-types';
 import cx from 'classnames';
-import { withNamespaces } from 'react-i18next';
 
-import regionChests from './lists/regionChests';
-import lostSectors from './lists/lostSectors';
-import adventures from './lists/adventures';
-import corruptedEggs from './lists/corruptedEggs';
-import ahamkaraBones from './lists/ahamkaraBones';
-import catStatues from './lists/catStatues';
-import sleeperNodes from './lists/sleeperNodes';
-import ghostScans from './lists/ghostScans';
-import latentMemories from './lists/latentMemories';
-import caydesJournals from './lists/caydesJournals';
+import ObservedImage from '../../components/ObservedImage';
+import Button from '../../components/UI/Button';
+
 import './styles.css';
 
-class Checklists extends React.Component {
+import ChecklistFactory from './ChecklistFactory';
+
+function getItemsPerPage(width) {
+  if (width >= 1920) return 6;
+  if (width >= 1600) return 5;
+  if (width >= 1200) return 4;
+  if (width >= 800) return 3;
+  if (width >= 660) return 2;
+  if (width >= 500) return 1;
+  return 1;
+}
+
+const ListButton = p => (
+  <li key={p.name} className='linked'>
+    {p.icon ? <div className={p.icon} /> : <ObservedImage className='image' src={p.image} />}
+    <a
+      className={cx({
+        active: p.visible
+      })}
+      onClick={p.onClick}
+    />
+  </li>
+);
+
+ListButton.propTypes = {
+  name: PropTypes.string.isRequired,
+  onClick: PropTypes.func.isRequired,
+  icon: PropTypes.string,
+  image: PropTypes.string,
+  visible: PropTypes.bool
+};
+
+export class Checklists extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
       page: 0,
-      lowlidev: false
+      itemsPerPage: getItemsPerPage(props.viewport.width)
     };
-
-    this.changeSkip = this.changeSkip.bind(this);
   }
 
-  itemsPerPage = 5;
+  toggleCompleted = () => {
+    let currentState = this.props.collectibles;
+    let newState = {
+      hideCompletedChecklistItems: !currentState.hideCompletedChecklistItems
+    };
 
-  changeSkip = e => {
-    e.preventDefault();
+    this.props.setCollectibleDisplayState(newState);
+  };
 
-    let index = e.currentTarget.dataset.index;
+  componentDidUpdate(prevProps, prevState) {
+    const newWidth = this.props.viewport.width;
+    if (prevProps.viewport.width !== newWidth) {
+      this.setState({ itemsPerPage: getItemsPerPage(newWidth) });
+    }
+    if (prevState.itemsPerPage !== this.state.itemsPerPage || prevState.page !== this.state.page) {
+      this.props.rebindTooltips();
+    }
+  }
 
+  changeSkip = index => {
     this.setState({
-      page: Math.floor(index / this.itemsPerPage)
+      page: Math.floor(index / this.state.itemsPerPage)
     });
   };
 
   render() {
-    const {t} = this.props;
-    if (this.props.viewport.width >= 2000) {
-      this.itemsPerPage = 5;
-    }
-    if (this.props.viewport.width < 2000) {
-      this.itemsPerPage = 4;
-    }
-    if (this.props.viewport.width < 1600) {
-      this.itemsPerPage = 3;
-    }
-    if (this.props.viewport.width < 1200) {
-      this.itemsPerPage = 2;
-    }
-    if (this.props.viewport.width < 800) {
-      this.itemsPerPage = 1;
-    }
+    const { t, member, collectibles } = this.props;
+    const { page, itemsPerPage } = this.state;
 
-    const lists = [
-      {
-        name: t('Region Chests'),
-        icon: 'destiny-region_chests',
-        list: regionChests(this)
-      },
-      {
-        name: t('Lost Sectors'),
-        icon: 'destiny-lost_sectors',
-        list: lostSectors(this.props)
-      },
-      {
-        name: t('Adventures'),
-        icon: 'destiny-adventure',
-        list: adventures(this.props)
-      },
-      {
-        name: t('Corrupted Eggs'),
-        icon: 'destiny-corrupted_eggs',
-        list: corruptedEggs(this.props)
-      },
-      {
-        name: t('Ahamkara Bones '),
-        icon: 'destiny-ahamkara_bones',
-        list: ahamkaraBones(this.props)
-      },
-      {
-        name: t('Cat Statues'),
-        icon: 'destiny-cat_statues',
-        list: catStatues(this.props)
-      },
-      {
-        name: t('Sleeper Nodes'),
-        icon: 'destiny-sleeper_nodes',
-        list: sleeperNodes(this.props)
-      },
-      {
-        name: t('Ghost Scans'),
-        icon: 'destiny-ghost',
-        list: ghostScans(this.props)
-      },
-      {
-        name: t('Lost Memory Fragments'),
-        icon: 'destiny-lost_memory_fragments',
-        list: latentMemories(this.props)
-      }
-    ];
+    const f = new ChecklistFactory(t, member.data.profile, member.characterId, collectibles.hideCompletedChecklistItems);
 
-    if (Object.values(this.props.response.profile.profileProgression.data.checklists[2448912219]).filter(value => value === true).length === 4) {
-      lists.push({
-        name: t("Cayde's Journals"),
-        icon: 'destiny-ace_of_spades',
-        list: caydesJournals(this.props)
-      });
-    }
+    const lists = [f.regionChests(), f.lostSectors(), f.adventures(), f.ghostScans(), f.sleeperNodes(), f.latentMemories(), f.corruptedEggs(), f.ahamkaraBones(), f.catStatues(), f.ghostStories(), f.awokenOfTheReef(), f.forsakenPrince()];
 
-    let sliceStart = parseInt(this.state.page, 10) * this.itemsPerPage;
-    let sliceEnd = sliceStart + this.itemsPerPage;
+    // if (Object.values(member.data.profile.profileProgression.data.checklists[2448912219]).filter(i => i).length === 4) {
+    //   lists.push(f.caydesJournals());
+    // }
+
+    let sliceStart = parseInt(page, 10) * itemsPerPage;
+    let sliceEnd = sliceStart + itemsPerPage;
+
+    const visible = lists.slice(sliceStart, sliceEnd);
+
+    const toggleCompletedLink = (
+      <Button action={this.toggleCompleted}>
+        {this.props.collectibles.hideCompletedChecklistItems ? (
+          <>
+            <i className='segoe-uniF16E' />
+            {t('Show all')}
+          </>
+        ) : (
+          <>
+            <i className='segoe-uniF16B' />
+            {t('Hide completed')}
+          </>
+        )}
+      </Button>
+    );
 
     return (
-      <div className='view' id='checklists'>
-        <div className='views'>
-          <div className='sub-header sub'>
-            <div>Checklists</div>
-          </div>
-          <ul className='list'>
-            {lists.map((list, index) => {
-              let active = false;
-
-              if (index >= sliceStart && index < sliceEnd) {
-                active = true;
-              }
-
-              return (
-                <li key={list.name} className='linked'>
-                  <a
-                    href='/'
-                    className={cx({
-                      active: active
-                    })}
-                    data-index={index}
-                    onClick={this.changeSkip}
-                  >
-                    <div className={list.icon} />
-                    <div className='name'>{list.name}</div>
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-        <div className={cx('lists', 'col-' + this.itemsPerPage)}>
-          {lists.slice(sliceStart, sliceEnd).map(list => {
-            return (
-              <div className='col' key={list.name}>
-                {list.list}
+      <>
+        <div className='view' id='checklists'>
+          <div className={cx('module', 'head', 'cols-' + this.state.itemsPerPage)}>
+            <div className='content'>
+              <div className='page-header'>
+                <div className='sub-name'>{t('Location collections')}</div>
+                <div className='name'>{t('Checklists')}</div>
               </div>
-            );
-          })}
+            </div>
+            <div className='content source'>
+              <p>Mapping data</p>
+              <p>
+                Data for some checklists is supplemented by hand of an Iron Lord,{' '}
+                <a href='https://lowlidev.com.au/destiny/' target='_blank' rel='noopener noreferrer'>
+                  lowlidev
+                </a>
+                , and he deserves your favour, Guardian.
+              </p>
+            </div>
+          </div>
+          <div className={cx('padder', 'cols-' + this.state.itemsPerPage)}>
+            <div className='module views'>
+              <ul className='list'>
+                {lists.map((list, i) => (
+                  <ListButton name={list.name} icon={list.icon} image={list.image} key={i} visible={visible.includes(list)} onClick={() => this.changeSkip(i)} />
+                ))}
+              </ul>
+            </div>
+            {visible.map(list => (
+              <div className='module list' key={list.name}>
+                {list.checklist}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+        <div className='sticky-nav'>
+          <div className='wrapper'>
+            <div />
+            <ul>
+              <li>{toggleCompletedLink}</li>
+            </ul>
+          </div>
+        </div>
+      </>
     );
   }
 }
 
-export default withNamespaces()(Checklists);
+Checklists.propTypes = {
+  member: PropTypes.object.isRequired,
+  collectibles: PropTypes.object.isRequired,
+  viewport: PropTypes.object.isRequired
+};
+
+function mapStateToProps(state, ownProps) {
+  return {
+    member: state.member,
+    collectibles: state.collectibles,
+    viewport: state.viewport
+  };
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    rebindTooltips: value => {
+      dispatch({ type: 'REBIND_TOOLTIPS', payload: new Date().getTime() });
+    },
+    setCollectibleDisplayState: value => {
+      dispatch({ type: 'SET_COLLECTIBLES', payload: value });
+    }
+  };
+}
+
+export default compose(
+  connect(
+    mapStateToProps,
+    mapDispatchToProps
+  ),
+  withTranslation()
+)(Checklists);

@@ -2,14 +2,19 @@
   padding: 4rem 3rem 3rem;
 }
 
-#collections .sub-header {
-  margin: 0 0 2rem;
+#collections.root {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-gap: 3rem;
+}
+
+#collections.root .parent {
   width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 #collections .sidebar {
-  flex-basis: calc(100% / 3);
-  margin: 0 0 0 3rem;
   width: 100%;
   display: flex;
   flex-flow: row wrap;
@@ -18,30 +23,41 @@
 
 #collections .sidebar .recently-discovered {
   flex-basis: 100%;
-  margin: 0 0 3rem;
+  margin: 0 0 2rem;
 }
 
 #collections .sidebar .recently-discovered .list {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-  grid-template-rows: 1fr;
-  grid-column-gap: 7px;
-  grid-row-gap: 0;
+  grid-template-columns: repeat(6, 1fr);
+  grid-gap: 7px;
   justify-items: stretch;
   align-items: stretch;
 }
 
-#collections .sidebar .recently-discovered .list .item {
+#collections .sidebar .recently-discovered .list li {
   padding-bottom: 100%;
   height: unset;
+  margin: 0;
+  display: block;
 }
 
-#collections .sidebar .recently-discovered .list .item::before {
+#collections .sidebar .recently-discovered .list li .icon {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  flex-basis: unset;
+}
+
+#collections .sidebar .recently-discovered .list li .text {
+  display: none;
+}
+
+#collections .sidebar .recently-discovered .list li::before {
   box-shadow: inset 0 0 0 2px #d6d6d6;
 }
 
-#collections .sidebar .recently-discovered .list .item:hover::before {
-  background-color: rgba(255, 255, 255, 0.2);
+#collections .sidebar .index-search {
+  flex-basis: 100%;
 }
 
 #collections .sidebar .badges {
@@ -64,6 +80,7 @@
   height: unset;
   margin: 0;
   transition: background-color 0.5s, box-shadow 0.25s;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 #collections .sidebar .badges .list li.badge::before {
@@ -105,23 +122,24 @@
   box-shadow: inset 0 0 0 2px #d7be5b;
 }
 
-#collections .nodes {
-  flex-basis: calc(100% / 3 * 2 - 3rem);
-  width: 100%;
-  display: flex;
-  flex-flow: row wrap;
-  align-content: flex-start;
-}
-
-#collections .parent .list {
-  flex-basis: 100%;
-  margin: 0 0 3rem;
+#collections.root .parent {
+  margin: 0 0 1rem;
   display: grid;
   grid-gap: 1rem;
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-#collections .parent .list .node {
+#collections.root .parent .node a {
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#collections.root .parent .node a:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+#collections.root .parent .node {
   width: 100%;
   padding-bottom: calc(354/300*100%);
   position: relative;
@@ -130,7 +148,12 @@
   border-top-right-radius: 21%;
 }
 
-#collections .parent .list .node::before {
+#collections.root .parent .node.completed {
+  background: radial-gradient(circle at 50% 30%, rgba(207, 191, 124, 0.4), transparent);
+  /* box-shadow: inset 0 0 0 1px rgba(207, 191, 124, 1); */
+}
+
+#collections.root .parent .node::before {
   content: ' ';
   position: absolute;
   top: 0;
@@ -140,7 +163,11 @@
   border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-#collections .parent .list .node .text {
+#collections.root .parent .node.completed::before {
+  border-right: 1px solid rgba(207, 191, 124, 0.7);
+}
+
+#collections.root .parent .node .text {
   position: absolute;
   bottom: 3rem;
   left: 0;
@@ -149,7 +176,7 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-#collections .parent .list .node .text div {
+#collections.root .parent .node .text div {
   border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   padding: 14px 0;
   text-align: center;
@@ -158,19 +185,19 @@
   font-weight: 500;
 }
 
-#collections .parent .list .node .text div:first-child {
+#collections.root .parent .node .text div:first-child {
   border-top: 1px solid rgba(255, 255, 255, 0.4);
 }
 
-#collections .parent .list .node .text .state {
+#collections.root .parent .node .text .state {
   color: rgba(255, 255, 255, 0.4);
 }
 
-#collections .parent .list .node .text .state span {
+#collections.root .parent .node .text .state span {
   color: rgba(255, 255, 255, 0.8);
 }
 
-#collections .parent .list .node a {
+#collections.root .parent .node a {
   position: absolute;
   top: 0;
   left: 0;
@@ -179,7 +206,7 @@
   border-top-right-radius: 21%;
 }
 
-#collections .parent .list .node a::before {
+#collections.root .parent .node a::before {
   content: ' ';
   position: absolute;
   top: 0;
@@ -193,7 +220,11 @@
   transition: box-shadow 0.25s, background-color 0.25s;
 }
 
-#collections .parent .list .node a::after {
+#collections.root .parent .node.completed a::before {
+  box-shadow: inset 0 0 0 1px rgba(207, 191, 124, 0.8);
+}
+
+#collections.root .parent .node a::after {
   content: ' ';
   position: absolute;
   top: -2px;
@@ -207,12 +238,12 @@
   transition: box-shadow 0.25s;
 }
 
-#collections .parent .list .node a:hover::before {
+#collections.root .parent .node a:hover::before {
   box-shadow: inset 0 0 0 1px #d6d6d6;
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-#collections .parent .list .node a:hover::after {
+#collections.root .parent .node a:hover::after {
   box-shadow: 0 0 0 2px #d6d6d6;
 }
 
@@ -221,51 +252,62 @@
   margin: 0 0 0 calc(3rem - 3px);
 }
 
-#collections .list.tertiary li {
-  background-color: rgba(0, 0, 0, 0.1);
-  color: rgba(255, 255, 255, 0.4);
+#collections .list.inventory-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-gap: 7px;
 }
 
-#collections .list.tertiary li.completed {
-  background-color: rgba(255, 255, 255, 0.1);
+#collections .list.tertiary.sets {
+  grid-gap: 2rem;
+}
+
+#collections .list.tertiary.sets .set {
+  width: 100%;
+}
+
+#collections .list.tertiary.sets > li {
+  background-color: rgba(36, 12, 12, 0);
+  padding: 0 0 0rem;
+}
+
+#collections .list.tertiary.sets > li::before {
+  box-shadow: inset 0 0 0 1px rgba(214, 214, 214, 0);
+}
+
+#collections .list.tertiary.sets li.is-set > .text {
+  flex-basis: 100%;
+  margin: 0;
+  position: relative;
+  margin: 0 0 1rem;
+  padding: 0 0 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+#collections .list.tertiary.sets li.is-set.completed > .text {
   color: rgba(255, 255, 255, 0.8);
 }
 
-#collections .list.tertiary li:hover {
+#collections .list.tertiary.sets li.is-set > .text::after {
+  content: ' ';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 2rem;
+  height: 2px;
   background-color: rgba(255, 255, 255, 0.4);
-  color: rgba(255, 255, 255, 1);
-}
-
-#collections .list.tertiary li .image.dl {
-  opacity: 0.4;
-}
-
-#collections .list.tertiary li.completed .image.dl {
-  opacity: 1;
 }
 
 #collections .list.tertiary li .set .list {
-  display: flex;
+  grid-template-columns: 1fr;
 }
 
-#collections .list.tertiary li.is-set {
-  flex-basis: calc(100% / 2 - 3px);
-}
-
-#collections .list.tertiary li.is-set .set {
-  flex-basis: calc((48px * 5) + (3px * 4));
-}
-
-#collections .list.tertiary li.is-set .set .list li {
-  margin: 0 0 0 3px;
-}
-
-#collections .list.tertiary li.is-set .set .list li:first-child {
-  margin: 0;
-}
-
-#collections .list.tertiary li.is-set .text {
-  flex-basis: calc(100% - ((48px * 5) + (3px * 4)) - 2rem);
+#collections .node.badge .children {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2rem 0 0;
 }
 
 #collections .node.badge .children .icon {
@@ -273,16 +315,25 @@
   flex-basis: 100%;
   display: flex;
   justify-content: center;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 #collections .node.badge .children .icon .corners {
   opacity: 0.2;
 }
 
-#collections .node.badge .children .icon .image {
+#collections .node.badge .children .icon .image.badge {
   position: relative;
   height: initial;
+  background-size: cover;
   padding-bottom: calc(126 / 208 * 100%);
+}
+
+#collections .node.badge .children .icon .image.badge-completed {
+  height: 40%;
+  background-size: contain;
+  background-position: left top;
 }
 
 #collections .node.badge .children .options {
@@ -290,30 +341,34 @@
 }
 
 #collections .node.badge .children .text .name {
-  margin: 2rem 0 0.5rem;
+  margin: 2rem 0 1rem;
   font-size: 36px;
   text-transform: uppercase;
   font-weight: 500;
+  line-height: 1.2;
 }
 
 #collections .node.badge .children .text .description {
   font-size: 16px;
   font-style: italic;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 #collections .node.badge .children .until {
-  margin: 6rem 0 0;
+  margin: 3rem 0 0;
 }
 
 #collections .node.badge .children .until h4 {
   margin: 0 0 1rem;
-  font-size: 16px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 #collections .node.badge .children .until h4.completed {
   color: rgb(206, 174, 51);
+  font-family: 'nhg text';
 }
 
 #collections .node.badge .children .progress {
@@ -336,6 +391,7 @@
   align-items: center;
   justify-content: center;
   background-color: rgba(255, 255, 255, 0.1);
+  font-size: 18px;
 }
 
 #collections .node.badge .children .progress .text {
@@ -388,42 +444,85 @@
   background-color: rgb(206, 174, 51);
 }
 
-#collections .node.badge .records .class {
-  margin: 0 0 3rem;
-  width: 100%;
+#collections .node.badge .entries {
+  padding-top: calc(2rem + 1px);
+  position: relative;
 }
 
-#collections .node.badge .records .class:last-child {
+#collections .node.badge .entries .class-nodes {
+  position: absolute;
+  top: 0;
+  left: 2rem;
+  width: calc(100% - 2rem);
+  display: grid;
+  justify-content: center;
+}
+
+#collections .node.badge .entries .class-nodes::before,
+#collections .node.badge .entries .class-nodes::after {
+  content: ' ';
+  position: absolute;
+  top: 0;
+  width: calc(50% - 75px - 2rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+#collections .node.badge .entries .class-nodes::after {
+  right: 0;
+}
+
+#collections .node.badge .entries .class-nodes .list {
+  position: absolute;
+  top: -20px;
+  left: calc(50% - 75px);
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-gap: 15px;
+}
+
+#collections .node.badge .entries .class-nodes .list .linked,
+#collections .node.badge .entries .class-nodes .list .linked a,
+#collections .node.badge .entries .class-nodes .list .linked::before,
+#collections .node.badge .entries .class-nodes .list .linked::after {
+  border-radius: 100%;
+}
+
+#collections .node.badge .entries .class-nodes .list .linked {
+  display: grid;
+  justify-content: center;
   margin: 0;
-  padding: 0;
-  border-bottom: none;
+  font-size: 20px;
+  height: 40px;
 }
 
-#collections .node.badge .records .class h5 {
-  margin: 0 0 1rem;
-  font-size: 14px;
+#collections .node.badge .entries .class-nodes .list .linked span {
+  margin: 0 1px 0 0;
 }
 
 @media screen and (max-width: 1400px) {
-  #collections .parent .node {
+  #collections.root .parent .node {
     flex-basis: 12rem;
   }
-  #collections .parent .list .node .text {
+
+  #collections.root .parent .node .text {
     bottom: 2rem;
   }
+
+  
 }
 
 @media screen and (max-width: 1200px) {
-  #collections .parent .node {
+  #collections.root .parent .node {
     flex-basis: 8rem;
   }
 
-  #collections .parent .list {
+  #collections.root .parent {
     grid-template-columns: 1fr 1fr;
   }
 
-  #collections .node .children {
-    flex-basis: 30%;
+  #collections .list.inventory-items {
+    grid-template-columns: 1fr 1fr;
   }
 
   #collections .node .collectibles {
@@ -440,44 +539,50 @@
   }
 }
 
-@media screen and (max-width: 500px) {
+@media screen and (max-width: 1024px) {
+  
+}
+
+@media screen and (max-width: 1023px) {
+  #collections.root {
+    grid-template-columns: 1fr;
+    grid-gap: 2rem;
+  }
+}
+
+@media screen and (max-width: 600px) {
   #collections {
     padding: 3rem 2rem 2rem;
+  }
+
+  #collections.root {
+    grid-template-columns: 1fr;
+    grid-gap: 2rem;
   }
 
   #collections .header .name {
     font-size: 24px;
   }
 
-  #collections .nodes {
-    flex-basis: 100%;
-  }
-
   #collections .sidebar {
-    flex-basis: 100%;
     margin: 0;
   }
 
-  #collections .parent .list {
+  #collections.root .parent {
     grid-template-columns: 1fr 1fr;
   }
 
-  #collections .parent .list .node::before {
+  #collections.root .parent .node::before {
     width: 5px;
   }
 
-  #collections .parent .list .node .text {
+  #collections.root .parent .node .text {
     bottom: 1.4rem;
   }
 
-  #collections .parent .list .node .text div {
+  #collections.root .parent .node .text div {
     padding: 7px 0;
     font-size: 10px;
-}
-
-  #collections .parent .node {
-    margin: 0 0 2rem;
-    flex-basis: calc(100% / 3);
   }
 
   #collections .node .children {
@@ -490,41 +595,33 @@
     margin: 0;
   }
 
+  #collections .list.inventory-items {
+    grid-template-columns: 1fr;
+  }
+
   #collections .list.tertiary li {
     flex-basis: 100%;
-    margin: 0 0 3px;
+  }
+
+  #collections .node.badge .children {
+    border-top: none;
+    padding: 0;
   }
 
   #collections .node.badge .children .text .name {
     font-size: 24px;
   }
 
+  #collections .node.badge .children .text .description {
+    font-size: 14px;
+  }
+
   #collections .node.badge .children .until {
     margin: 3rem 0 2rem;
   }
 
-  #collections .list.tertiary li.is-set .set {
-    flex-basis: 100%;
-  }
-
-  #collections .list.tertiary li.is-set .set .list li {
-    flex-basis: calc(100% / 5);
-  }
-
-  #collections .list.tertiary li.is-set .set .list li .icon:not(.image) {
+  #collections .node.badge .entries .class-nodes {
+    left: 0;
     width: 100%;
-    height: initial;
-    flex-basis: 100%;
-  }
-
-  #collections .list.tertiary li.is-set .set .list li .image.icon {
-    width: 100%;
-    height: initial;
-    padding-bottom: 100%;
-  }
-
-  #collections .list.tertiary li.is-set .text {
-    flex-basis: 100%;
-    padding: 0.5rem 0;
   }
 }

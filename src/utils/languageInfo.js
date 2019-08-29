@@ -10,6 +10,11 @@ export function getLanguageInfo(code) {
         name: 'English',
         code: code
       };
+    case 'en-au':
+      return {
+        name: 'English (Australia)',
+        code: code
+      };
     case 'es':
       return {
         name: 'Español',
